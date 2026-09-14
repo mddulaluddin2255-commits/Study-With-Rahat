@@ -673,47 +673,138 @@ export const INITIAL_NOTIFICATIONS: NotificationItem[] = [
 
 export const INITIAL_ADS: AdPlacement[] = [
   {
-    id: 'header',
-    name: 'হেডার ব্যানার বিজ্ঞাপন (Header Top Banner)',
+    id: 'home_leaderboard',
+    name: 'হোমপেজ টপ ব্যানার (728x90 Banner Ad)',
     isEnabled: true,
-    adText: 'Study With Rahat আইসিটি ও গণিত স্পেশাল কোর্সে ভর্তি চলছে! সীমিত আসন — এখনই যুক্ত হোন।',
+    adType: '728x90',
+    title: '728x90 Top Leaderboard Ad',
+    slotName: 'banner_728x90_top',
+    placement: 'home_leaderboard',
+    adText: 'Study With Rahat আইসিটি ও গণিত স্পেশাল কোর্সে ভর্তি চলছে!',
     targetUrl: '#courses',
-    bannerImageUrl: 'https://images.unsplash.com/photo-1513258496099-48168024aec0?auto=format&fit=crop&w=1200&q=80'
+    code: `<script>
+  atOptions = {
+    'key' : '24b11563f636493ae3cb845b3c43892b',
+    'format' : 'iframe',
+    'height' : 90,
+    'width' : 728,
+    'params' : {}
+  };
+</script>
+<script src="https://www.highrevenueformat.com/24b11563f636493ae3cb845b3c43892b/invoke.js"></script>`,
+    codeSnippet: 'https://www.highrevenueformat.com/24b11563f636493ae3cb845b3c43892b/invoke.js'
   },
   {
     id: 'home_middle',
-    name: 'হোমপেজ কনটেন্ট বিজ্ঞাপন (In-between Section)',
+    name: 'হোমপেজ নেটিভ বিজ্ঞাপন (Native Banner Ad)',
     isEnabled: true,
+    adType: 'native',
+    title: 'Native Content Banner Ad',
+    slotName: 'native_banner_middle',
+    placement: 'home_middle',
     adText: 'বিসিএস ও ব্যাংক জব প্রিলিমিনারি মডেল টেস্ট ব্যাচ — ফ্রি ডেমো ক্লাস ও হ্যান্ডনোট পান!',
     targetUrl: '#courses',
-    bannerImageUrl: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=1200&q=80'
+    code: `<script async="async" data-cfasync="false" src="https://pl31339741.profitableratecpmnetwork.com/96450409c12a4063f2d817b760e315ff/invoke.js"></script>
+<div id="container-96450409c12a4063f2d817b760e315ff"></div>`,
+    codeSnippet: 'https://pl31339741.profitableratecpmnetwork.com/96450409c12a4063f2d817b760e315ff/invoke.js'
+  },
+  {
+    id: 'home_bottom',
+    name: 'হোমপেজ নিচের ব্যানার (728x90 Bottom Banner)',
+    isEnabled: true,
+    adType: '728x90',
+    title: '728x90 Bottom Banner Ad',
+    slotName: 'banner_728x90_bottom',
+    placement: 'home_bottom',
+    adText: 'পরীক্ষার প্রস্তুতিতে সেরা সাজেশন ও হ্যান্ডনোট ডাউনলোড করুন ফ্রিতে।',
+    targetUrl: '#suggestions',
+    code: `<script>
+  atOptions = {
+    'key' : '24b11563f636493ae3cb845b3c43892b',
+    'format' : 'iframe',
+    'height' : 90,
+    'width' : 728,
+    'params' : {}
+  };
+</script>
+<script src="https://www.highrevenueformat.com/24b11563f636493ae3cb845b3c43892b/invoke.js"></script>`
+  },
+  {
+    id: 'article_top',
+    name: 'আর্টিকেলের শুরুতে ব্যানার (728x90 Banner)',
+    isEnabled: true,
+    adType: '728x90',
+    title: 'Article Top 728x90 Banner',
+    slotName: 'article_top_728x90',
+    placement: 'article_top',
+    adText: 'পরীক্ষার প্রস্তুতিতে সেরা সাজেশন ও হ্যান্ডনোট ডাউনলোড করুন ফ্রিতে।',
+    targetUrl: '#suggestions',
+    code: `<script>
+  atOptions = {
+    'key' : '24b11563f636493ae3cb845b3c43892b',
+    'format' : 'iframe',
+    'height' : 90,
+    'width' : 728,
+    'params' : {}
+  };
+</script>
+<script src="https://www.highrevenueformat.com/24b11563f636493ae3cb845b3c43892b/invoke.js"></script>`
+  },
+  {
+    id: 'article_bottom',
+    name: 'আর্টিকেলের শেষে নেটিভ বিজ্ঞাপন (Native Banner)',
+    isEnabled: true,
+    adType: 'native',
+    title: 'Article Bottom Native Ad',
+    slotName: 'article_bottom_native',
+    placement: 'article_bottom',
+    adText: 'চাকরির প্রস্তুতির সেরা বই ও মডেল টেস্ট পেতে আমাদের অফিশিয়াল পেজে যুক্ত থাকুন।',
+    targetUrl: '#jobs',
+    code: `<script async="async" data-cfasync="false" src="https://pl31339741.profitableratecpmnetwork.com/96450409c12a4063f2d817b760e315ff/invoke.js"></script>
+<div id="container-96450409c12a4063f2d817b760e315ff"></div>`
+  },
+  {
+    id: 'popunder',
+    name: 'পপআন্ডার বিজ্ঞাপন নেটওয়ার্ক (Popunder Ad)',
+    isEnabled: true,
+    adType: 'popunder',
+    title: 'Popunder CPM Network Ad',
+    slotName: 'global_popunder',
+    placement: 'popunder',
+    adText: 'ওয়েবসাইট ভিজিট এবং ক্লিকে স্বয়ংক্রিয় পপআন্ডার অ্যাড চালু রয়েছে।',
+    targetUrl: 'https://pl31339739.profitableratecpmnetwork.com/4e/a9/d4/4ea9d43d7d455c036b3ad46f11ff98e6.js',
+    code: `<script src="https://pl31339739.profitableratecpmnetwork.com/4e/a9/d4/4ea9d43d7d455c036b3ad46f11ff98e6.js"></script>`
+  },
+  {
+    id: 'header',
+    name: 'হেডার বিজ্ঞাপন (Header Top Banner)',
+    isEnabled: true,
+    adType: '728x90',
+    title: 'Header Banner',
+    slotName: 'header_top',
+    placement: 'header',
+    adText: 'Study With Rahat আইসিটি ও গণিত স্পেশাল কোর্সে ভর্তি চলছে! সীমিত আসন — এখনই যুক্ত হোন।',
+    targetUrl: '#courses'
   },
   {
     id: 'sidebar',
     name: 'সাইডবার ব্যানার (Desktop Sidebar)',
     isEnabled: true,
+    adType: 'custom',
+    title: 'Sidebar Banner',
+    slotName: 'sidebar_right',
+    placement: 'sidebar',
     adText: 'আমাদের টেলিগ্রাম চ্যানেলে যুক্ত হয়ে সকল নোটিশ ও ফ্রি পিডিএফ সাজেশন সবার আগে পান।',
-    targetUrl: 'https://t.me/studywithrahat',
-    bannerImageUrl: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=600&q=80'
-  },
-  {
-    id: 'article_top',
-    name: 'আর্টিকেলের শুরুতে বিজ্ঞাপন (Article Top)',
-    isEnabled: true,
-    adText: 'পরীক্ষার প্রস্তুতিতে সেরা সাজেশন ও হ্যান্ডনোট ডাউনলোড করুন ফ্রিতে।',
-    targetUrl: '#suggestions'
-  },
-  {
-    id: 'article_bottom',
-    name: 'আর্টিকেলের শেষে বিজ্ঞাপন (Article Bottom)',
-    isEnabled: true,
-    adText: 'চাকরির প্রস্তুতির সেরা বই ও মডেল টেস্ট পেতে আমাদের অফিশিয়াল পেজে যুক্ত থাকুন।',
-    targetUrl: '#jobs'
+    targetUrl: 'https://t.me/studywithrahat'
   },
   {
     id: 'footer',
     name: 'ফুটার স্পনসর ব্যানার (Footer Sticky / Top)',
     isEnabled: true,
+    adType: 'custom',
+    title: 'Footer Sponsor',
+    slotName: 'footer_bottom',
+    placement: 'footer',
     adText: 'Study With Rahat — শিক্ষা, চাকরি ও ভর্তি তথ্যের একমাত্র বিশ্বস্ত ঠিকানা।',
     targetUrl: '#home'
   }

@@ -151,13 +151,19 @@ export interface NotificationItem {
 }
 
 export interface AdPlacement {
-  id: 'header' | 'home_middle' | 'sidebar' | 'article_top' | 'article_bottom' | 'footer';
+  id: 'header' | 'home_middle' | 'sidebar' | 'article_top' | 'article_bottom' | 'footer' | 'home_leaderboard' | 'home_bottom' | 'native_content' | 'popunder';
   name: string;
   isEnabled: boolean;
   adText: string;
   targetUrl: string;
   bannerImageUrl?: string;
   codeSnippet?: string;
+  adType?: '728x90' | 'native' | 'popunder' | 'custom';
+  title?: string;
+  slotName?: string;
+  placement?: string;
+  code?: string;
+  enabled?: boolean;
 }
 
 export interface SiteSettings {

@@ -897,43 +897,103 @@ export const AdminDashboard: React.FC = () => {
       {/* TAB 8: ADS MANAGER */}
       {activeTab === 'ads' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-6">
-          <div>
-            <h3 className="text-base font-bold text-slate-900 mb-1">বিজ্ঞাপন ব্যবস্থাপনা (Ads Manager)</h3>
-            <p className="text-xs text-slate-500">
-              গুগল অ্যাডসেন্স (Google AdSense) কোড বা কাস্টম ব্যানার বিজ্ঞাপন প্রদর্শন এবং নিয়ন্ত্রণ করুন।
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
+            <div>
+              <h3 className="text-base font-bold text-slate-900 mb-1">বিজ্ঞাপন ব্যবস্থাপনা (Ads Network Manager)</h3>
+              <p className="text-xs text-slate-500">
+                ওয়েবসাইটের ব্যানার (728×90), পপআন্ডার (Popunder) ও নেটিভ (Native Banner) বিজ্ঞাপন নেটওয়ার্ক কোডসমূহ।
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                ৩টি অ্যাড নেটওয়ার্ক সক্রিয়
+              </span>
+            </div>
+          </div>
+
+          {/* Quick Ad Network Status Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="p-3.5 rounded-xl border border-blue-100 bg-blue-50/50">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold text-blue-900">728×90 Banner Ads</span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-blue-100 text-blue-700 font-semibold">HighRevenue</span>
+              </div>
+              <p className="text-[11px] text-slate-600 font-mono truncate">Key: 24b11563f636493ae3cb845b3c43892b</p>
+              <span className="text-[10px] text-blue-600 font-medium">✓ হোমপেজ ও আর্টিকেলে সক্রিয়</span>
+            </div>
+
+            <div className="p-3.5 rounded-xl border border-amber-100 bg-amber-50/50">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold text-amber-900">Popunder Ads</span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold">ProfitableRate</span>
+              </div>
+              <p className="text-[11px] text-slate-600 font-mono truncate">pl31339739...network.com</p>
+              <span className="text-[10px] text-amber-700 font-medium">✓ সাইটজুড়ে ক্লিকে স্বয়ংক্রিয়</span>
+            </div>
+
+            <div className="p-3.5 rounded-xl border border-emerald-100 bg-emerald-50/50">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold text-emerald-900">Native Banner</span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-semibold">Native CPM</span>
+              </div>
+              <p className="text-[11px] text-slate-600 font-mono truncate">#container-96450409c12a406...</p>
+              <span className="text-[10px] text-emerald-700 font-medium">✓ পোস্টের নিচে স্পন্সরড উইজেট</span>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {ads.map(ad => (
-              <div key={ad.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-slate-800">{ad.title}</span>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={ad.enabled}
-                        onChange={(e) => updateAd(ad.id, { enabled: e.target.checked })}
-                        className="sr-only peer"
-                      />
-                      <div className="w-9 h-5 bg-slate-300 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
+            {ads.map(ad => {
+              const isEnabled = ad.isEnabled !== undefined ? ad.isEnabled : !!ad.enabled;
+              const adCode = ad.code || ad.codeSnippet || '';
+              const formatBadge = ad.adType === '728x90' 
+                ? 'bg-blue-100 text-blue-800 border-blue-200' 
+                : ad.adType === 'native'
+                ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                : ad.adType === 'popunder'
+                ? 'bg-amber-100 text-amber-800 border-amber-200'
+                : 'bg-slate-100 text-slate-700 border-slate-200';
+
+              return (
+                <div key={ad.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-800">{ad.title || ad.name}</span>
+                        {ad.adType && (
+                          <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border ${formatBadge}`}>
+                            {ad.adType}
+                          </span>
+                        )}
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={isEnabled}
+                          onChange={(e) => updateAd(ad.id, { isEnabled: e.target.checked, enabled: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-slate-300 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                      </label>
+                    </div>
+                    <span className="text-[11px] text-slate-400 font-mono block mb-2">{ad.slotName || ad.id} ({ad.placement || ad.id})</span>
+                    <textarea
+                      rows={3}
+                      value={adCode}
+                      onChange={(e) => updateAd(ad.id, { code: e.target.value, codeSnippet: e.target.value })}
+                      className="w-full text-xs font-mono p-2 border border-slate-200 rounded-lg bg-white"
+                      placeholder="অ্যাড কোড / Script লিখুন"
+                    />
                   </div>
-                  <span className="text-[11px] text-slate-400 font-mono block mb-2">{ad.slotName} ({ad.placement})</span>
-                  <textarea
-                    rows={3}
-                    value={ad.code}
-                    onChange={(e) => updateAd(ad.id, { code: e.target.value })}
-                    className="w-full text-xs font-mono p-2 border border-slate-200 rounded-lg bg-white"
-                    placeholder="AdSense / HTML Script কোড লিখুন"
-                  />
+                  <div className="mt-3 flex items-center justify-between text-[11px]">
+                    <span className={isEnabled ? "text-emerald-600 font-medium" : "text-slate-400"}>
+                      {isEnabled ? '● বিজ্ঞাপন লাইভ' : '○ বিজ্ঞাপন বন্ধ'}
+                    </span>
+                    <span className="text-slate-400 font-mono">{ad.id}</span>
+                  </div>
                 </div>
-                <div className="mt-3 text-right">
-                  <span className="text-[11px] text-emerald-600 font-medium">✓ পরিবর্তন স্বয়ংক্রিয়ভাবে সংরক্ষিত</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

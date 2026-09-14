@@ -1,17 +1,57 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { ExternalLink, Sparkles } from 'lucide-react';
+import { Banner728x90 } from './Banner728x90';
+import { NativeBannerAd } from './NativeBannerAd';
 
 interface AdBannerProps {
-  placementId: 'header' | 'home_middle' | 'sidebar' | 'article_top' | 'article_bottom' | 'footer';
+  placementId:
+    | 'header'
+    | 'home_middle'
+    | 'sidebar'
+    | 'article_top'
+    | 'article_bottom'
+    | 'footer'
+    | 'home_leaderboard'
+    | 'home_bottom'
+    | 'native_content';
   className?: string;
+  forceFormat?: '728x90' | 'native' | 'custom';
 }
 
-export const AdBanner: React.FC<AdBannerProps> = ({ placementId, className = '' }) => {
+export const AdBanner: React.FC<AdBannerProps> = ({ placementId, className = '', forceFormat }) => {
   const { ads, navigateTo } = useApp();
   const ad = ads.find(a => a.id === placementId);
 
-  if (!ad || !ad.isEnabled) {
+  // If ad exists and is disabled by user, don't show
+  if (ad && !ad.isEnabled) {
+    return null;
+  }
+
+  // 1. If explicitly 728x90 banner or by placement ID:
+  if (
+    forceFormat === '728x90' ||
+    ad?.adType === '728x90' ||
+    placementId === 'home_leaderboard' ||
+    placementId === 'home_bottom' ||
+    placementId === 'article_top'
+  ) {
+    return <Banner728x90 className={className} />;
+  }
+
+  // 2. If explicitly native banner or by placement ID:
+  if (
+    forceFormat === 'native' ||
+    ad?.adType === 'native' ||
+    placementId === 'home_middle' ||
+    placementId === 'article_bottom' ||
+    placementId === 'native_content'
+  ) {
+    return <NativeBannerAd className={className} />;
+  }
+
+  // 3. Fallback to custom internal styled banner if ad exists
+  if (!ad) {
     return null;
   }
 

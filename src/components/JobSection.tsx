@@ -105,6 +105,9 @@ export const JobSection: React.FC = () => {
           </button>
         </div>
       )}
+
+      {/* Bottom 728x90 Ad Banner */}
+      <AdBanner placementId="home_bottom" className="mt-8" />
     </div>
   );
 };

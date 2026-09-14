@@ -202,6 +202,9 @@ export const ResultSection: React.FC = () => {
           <p className="text-xs text-slate-500 mt-1">অন্য ক্যাটাগরি সিলেক্ট করুন</p>
         </div>
       )}
+
+      {/* Bottom 728x90 Ad Banner */}
+      <AdBanner placementId="home_bottom" className="mt-8" />
     </div>
   );
 };
