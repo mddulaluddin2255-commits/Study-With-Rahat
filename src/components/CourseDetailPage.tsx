@@ -26,7 +26,8 @@ export const CourseDetailPage: React.FC = () => {
     enrolledCourseIds,
     enrollInCourse,
     toggleBookmark,
-    isBookmarked
+    isBookmarked,
+    openShareModal
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'syllabus' | 'instructor' | 'faq'>('syllabus');
@@ -130,10 +131,15 @@ export const CourseDetailPage: React.FC = () => {
 
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText(window.location.href);
-                  alert('কোর্সের লিংক কপি করা হয়েছে!');
+                  openShareModal({
+                    id: course.id,
+                    type: 'course',
+                    title: course.title,
+                    category: course.category,
+                    summary: `${course.instructorName} • ${course.duration} • ${course.isPaid ? `${course.price} ৳` : 'সম্পূর্ণ ফ্রি'}`
+                  });
                 }}
-                className="p-2.5 border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors"
+                className="p-2.5 border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
                 title="শেয়ার করুন"
               >
                 <Share2 className="w-5 h-5 text-slate-600" />

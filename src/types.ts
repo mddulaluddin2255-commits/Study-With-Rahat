@@ -182,3 +182,12 @@ export interface MediaItem {
   size: string;
   uploadedAt: string;
 }
+
+export interface ShareTarget {
+  id: string;
+  type: PostType;
+  title: string;
+  category?: string;
+  summary?: string;
+  url?: string;
+}

@@ -1,15 +1,26 @@
 import React from 'react';
 import { ResultPost } from '../types';
 import { useApp } from '../context/AppContext';
-import { Award, Calendar, ExternalLink, ArrowRight, Bookmark, Building, MessageSquare } from 'lucide-react';
+import { Award, Calendar, ExternalLink, ArrowRight, Bookmark, Building, MessageSquare, Share2 } from 'lucide-react';
 
 interface ResultCardProps {
   result: ResultPost;
 }
 
 export const ResultCard: React.FC<ResultCardProps> = ({ result }) => {
-  const { navigateToPost, toggleBookmark, isBookmarked } = useApp();
+  const { navigateToPost, toggleBookmark, isBookmarked, openShareModal } = useApp();
   const bookmarked = isBookmarked(result.id);
+
+  const handleShare = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    openShareModal({
+      id: result.id,
+      type: 'result',
+      title: result.title,
+      category: `${result.category} (${result.year})`,
+      summary: `${result.boardOrUniversity} • পরীক্ষার ফলাফল ও মার্কশিট সংক্রান্ত বিস্তারিত নির্দেশনা`
+    });
+  };
 
   return (
     <article
@@ -33,8 +44,16 @@ export const ResultCard: React.FC<ResultCardProps> = ({ result }) => {
                 toggleBookmark(result.id);
               }}
               className="p-1 rounded-lg hover:bg-slate-100 transition-colors"
+              title="সেভ করুন"
             >
               <Bookmark className={`w-4 h-4 ${bookmarked ? 'fill-purple-600 text-purple-600' : 'text-slate-400'}`} />
+            </button>
+            <button
+              onClick={handleShare}
+              className="p-1 rounded-lg hover:bg-slate-100 hover:text-purple-600 transition-colors text-slate-400"
+              title="শেয়ার করুন"
+            >
+              <Share2 className="w-4 h-4" />
             </button>
           </div>
         </div>

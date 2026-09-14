@@ -17,9 +17,10 @@ import { Footer } from './components/Footer';
 import { MobileNav } from './components/MobileNav';
 import { GlobalSearchModal } from './components/GlobalSearchModal';
 import { AuthModal } from './components/AuthModal';
+import { ShareModal } from './components/ShareModal';
 
 const MainContent: React.FC = () => {
-  const { activeView } = useApp();
+  const { activeView, shareTarget, closeShareModal } = useApp();
   const [searchOpen, setSearchOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
 
@@ -64,6 +65,12 @@ const MainContent: React.FC = () => {
       <AuthModal
         isOpen={authOpen}
         onClose={() => setAuthOpen(false)}
+      />
+
+      {/* 7. Post Share Modal */}
+      <ShareModal
+        shareTarget={shareTarget}
+        onClose={closeShareModal}
       />
     </div>
   );

@@ -1,15 +1,26 @@
 import React from 'react';
 import { SuggestionPost } from '../types';
 import { useApp } from '../context/AppContext';
-import { Sparkles, BookOpen, Download, ArrowRight, Bookmark, HelpCircle, CheckSquare } from 'lucide-react';
+import { Sparkles, BookOpen, Download, ArrowRight, Bookmark, HelpCircle, CheckSquare, Share2 } from 'lucide-react';
 
 interface SuggestionCardProps {
   suggestion: SuggestionPost;
 }
 
 export const SuggestionCard: React.FC<SuggestionCardProps> = ({ suggestion }) => {
-  const { navigateToPost, toggleBookmark, isBookmarked } = useApp();
+  const { navigateToPost, toggleBookmark, isBookmarked, openShareModal } = useApp();
   const bookmarked = isBookmarked(suggestion.id);
+
+  const handleShare = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    openShareModal({
+      id: suggestion.id,
+      type: 'suggestion',
+      title: suggestion.title,
+      category: `${suggestion.classCategory} • ${suggestion.subject}`,
+      summary: `পরীক্ষার ১০০% কমন উপযোগী স্পেশাল সাজেশন ও সমাধান শিট`
+    });
+  };
 
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -33,15 +44,25 @@ export const SuggestionCard: React.FC<SuggestionCardProps> = ({ suggestion }) =>
             </span>
           </div>
 
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleBookmark(suggestion.id);
-            }}
-            className="p-1 rounded-lg hover:bg-slate-100 transition-colors"
-          >
-            <Bookmark className={`w-4 h-4 ${bookmarked ? 'fill-teal-600 text-teal-600' : 'text-slate-400'}`} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleBookmark(suggestion.id);
+              }}
+              className="p-1 rounded-lg hover:bg-slate-100 transition-colors"
+              title="সেভ করুন"
+            >
+              <Bookmark className={`w-4 h-4 ${bookmarked ? 'fill-teal-600 text-teal-600' : 'text-slate-400'}`} />
+            </button>
+            <button
+              onClick={handleShare}
+              className="p-1 rounded-lg hover:bg-slate-100 hover:text-teal-600 transition-colors text-slate-400"
+              title="শেয়ার করুন"
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         <h3 className="text-base sm:text-lg font-bold text-slate-900 group-hover:text-teal-700 transition-colors line-clamp-2 mb-2 leading-snug">

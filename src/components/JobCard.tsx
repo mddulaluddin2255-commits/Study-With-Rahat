@@ -8,21 +8,18 @@ interface JobCardProps {
 }
 
 export const JobCard: React.FC<JobCardProps> = ({ job }) => {
-  const { navigateToPost, toggleBookmark, isBookmarked } = useApp();
+  const { navigateToPost, toggleBookmark, isBookmarked, openShareModal } = useApp();
   const bookmarked = isBookmarked(job.id);
 
   const handleShare = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (navigator.share) {
-      navigator.share({
-        title: job.title,
-        text: `${job.orgName} - আবেদনের শেষ তারিখ: ${job.deadline}`,
-        url: window.location.href
-      }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(`${window.location.origin}/#job-${job.id}`);
-      alert('চাকরির লিংক কপি করা হয়েছে!');
-    }
+    openShareModal({
+      id: job.id,
+      type: 'job',
+      title: job.title,
+      category: job.jobType,
+      summary: `${job.orgName} • পদ: ${job.vacancies} • বেতন: ${job.salary} • শেষ তারিখ: ${job.deadline}`
+    });
   };
 
   return (

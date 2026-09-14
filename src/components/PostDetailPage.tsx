@@ -25,7 +25,7 @@ import {
 import { AdBanner } from './AdBanner';
 
 export const PostDetailPage: React.FC = () => {
-  const { selectedPost, getPostById, navigateTo, navigateToPost, toggleBookmark, isBookmarked, notices, jobs, suggestions } = useApp();
+  const { selectedPost, getPostById, navigateTo, navigateToPost, toggleBookmark, isBookmarked, notices, jobs, suggestions, openShareModal } = useApp();
   const [copied, setCopied] = useState(false);
 
   if (!selectedPost) {
@@ -59,7 +59,17 @@ export const PostDetailPage: React.FC = () => {
   }
 
   const bookmarked = isBookmarked(post.id);
-  const shareUrl = `${window.location.origin}/${selectedPost.type}/${post.slug || post.id}`;
+  const shareUrl = `${window.location.origin}${window.location.pathname}?type=${selectedPost.type}&id=${post.id}`;
+
+  const handleOpenShare = () => {
+    openShareModal({
+      id: post.id,
+      type: selectedPost.type,
+      title: post.title,
+      category: 'classCategory' in post ? post.classCategory : ('jobType' in post ? post.jobType : undefined),
+      summary: 'description' in post ? post.description : undefined
+    });
+  };
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(shareUrl);
@@ -68,15 +78,7 @@ export const PostDetailPage: React.FC = () => {
   };
 
   const handleNativeShare = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: post.title,
-        text: 'Study With Rahat এডুকেশন পোর্টাল থেকে দেখুন:',
-        url: shareUrl
-      }).catch(() => {});
-    } else {
-      handleCopyLink();
-    }
+    handleOpenShare();
   };
 
   // Related posts from same type
@@ -336,31 +338,38 @@ export const PostDetailPage: React.FC = () => {
         {/* Social Share Bar */}
         <div className="p-6 sm:p-8 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
           <span className="text-xs font-bold text-slate-700">পোস্টটি শেয়ার করে বন্ধুদের জানিয়ে দিন:</span>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
-              onClick={() => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank')}
-              className="px-3 py-1.5 bg-[#1877F2] text-white rounded-lg text-xs font-semibold hover:opacity-90 flex items-center gap-1 cursor-pointer"
-            >
-              Facebook
-            </button>
-            <button
-              onClick={() => window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(post.title + ' ' + shareUrl)}`, '_blank')}
-              className="px-3 py-1.5 bg-[#25D366] text-white rounded-lg text-xs font-semibold hover:opacity-90 flex items-center gap-1 cursor-pointer"
+              onClick={() => window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(`${post.title}\n\n${shareUrl}`)}`, '_blank')}
+              className="px-3 py-1.5 bg-[#25D366] text-white rounded-lg text-xs font-semibold hover:opacity-90 flex items-center gap-1 cursor-pointer shadow-2xs"
             >
               <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
             </button>
             <button
+              onClick={() => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank')}
+              className="px-3 py-1.5 bg-[#1877F2] text-white rounded-lg text-xs font-semibold hover:opacity-90 flex items-center gap-1 cursor-pointer shadow-2xs"
+            >
+              Facebook
+            </button>
+            <button
               onClick={() => window.open(`https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(post.title)}`, '_blank')}
-              className="px-3 py-1.5 bg-[#229ED9] text-white rounded-lg text-xs font-semibold hover:opacity-90 flex items-center gap-1 cursor-pointer"
+              className="px-3 py-1.5 bg-[#229ED9] text-white rounded-lg text-xs font-semibold hover:opacity-90 flex items-center gap-1 cursor-pointer shadow-2xs"
             >
               <Send className="w-3.5 h-3.5" /> Telegram
             </button>
             <button
               onClick={handleCopyLink}
-              className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer"
+              className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer shadow-2xs"
             >
               {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copied ? 'কপি হয়েছে!' : 'লিংক কপি'}</span>
+            </button>
+            <button
+              onClick={handleOpenShare}
+              className="px-3 py-1.5 bg-blue-600 text-white hover:bg-blue-700 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer shadow-2xs"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              <span>আরও শেয়ার অপশন</span>
             </button>
           </div>
         </div>

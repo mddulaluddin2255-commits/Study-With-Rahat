@@ -12,7 +12,8 @@ import {
   AppUser,
   MediaItem,
   PostType,
-  AnyPost
+  AnyPost,
+  ShareTarget
 } from '../types';
 import {
   INITIAL_SITE_SETTINGS,
@@ -131,6 +132,11 @@ interface AppContextType {
   toggleBookmark: (postId: string) => void;
   isBookmarked: (postId: string) => boolean;
 
+  // Share
+  shareTarget: ShareTarget | null;
+  openShareModal: (target: ShareTarget) => void;
+  closeShareModal: () => void;
+
   // Notifications
   notifications: NotificationItem[];
   unreadNotifCount: number;
@@ -195,6 +201,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [admissions, setAdmissions] = useState<AdmissionPost[]>(() => getStored('admissions', INITIAL_ADMISSIONS));
   const [suggestions, setSuggestions] = useState<SuggestionPost[]>(() => getStored('suggestions', INITIAL_SUGGESTIONS));
 
+  // Share modal state
+  const [shareTarget, setShareTarget] = useState<ShareTarget | null>(null);
+
+  const openShareModal = (target: ShareTarget) => {
+    setShareTarget(target);
+  };
+
+  const closeShareModal = () => {
+    setShareTarget(null);
+  };
+
   // Categories
   const [classes, setClasses] = useState<string[]>(() => getStored('classes', CLASS_CATEGORIES));
   const [subjects, setSubjects] = useState<string[]>(() => getStored('subjects', SUBJECT_LIST));
@@ -258,6 +275,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => setStored('views', websiteViews), [websiteViews]);
   useEffect(() => setStored('enrolled', enrolledCourseIds), [enrolledCourseIds]);
 
+  // Handle direct links for shared posts (e.g. ?type=notice&id=notice-1)
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const postType = (params.get('type') || params.get('postType')) as PostType;
+      const postId = params.get('id') || params.get('postId') || params.get('post');
+      if (postType && postId) {
+        setSelectedPost({ type: postType, id: postId });
+        if (postType === 'course') {
+          setActiveView('course-detail');
+        } else {
+          setActiveView('post-detail');
+        }
+      }
+    } catch (e) {
+      // safe fallback
+    }
+  }, []);
+
   const incrementWebsiteViews = () => {
     setWebsiteViews(prev => prev + 1);
   };
@@ -269,6 +305,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else {
       setActiveView('post-detail');
     }
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('type', type);
+      url.searchParams.set('id', id);
+      window.history.replaceState({ type, id }, '', url.toString());
+    } catch (e) {
+      // safe fallback
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -276,6 +320,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveView(view);
     if (view !== 'post-detail' && view !== 'course-detail') {
       setSelectedPost(null);
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('type');
+        url.searchParams.delete('id');
+        url.searchParams.delete('post');
+        url.searchParams.delete('postId');
+        window.history.replaceState({}, '', url.toString());
+      } catch (e) {
+        // safe fallback
+      }
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -684,6 +738,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         bookmarks,
         toggleBookmark,
         isBookmarked,
+
+        shareTarget,
+        openShareModal,
+        closeShareModal,
 
         notifications,
         unreadNotifCount,

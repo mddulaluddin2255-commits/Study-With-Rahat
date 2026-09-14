@@ -8,21 +8,18 @@ interface NoticeCardProps {
 }
 
 export const NoticeCard: React.FC<NoticeCardProps> = ({ notice }) => {
-  const { navigateToPost, toggleBookmark, isBookmarked } = useApp();
+  const { navigateToPost, toggleBookmark, isBookmarked, openShareModal } = useApp();
   const bookmarked = isBookmarked(notice.id);
 
   const handleShare = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (navigator.share) {
-      navigator.share({
-        title: notice.title,
-        text: notice.description,
-        url: window.location.href
-      }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(`${window.location.origin}/#notice-${notice.id}`);
-      alert('লিংক কপি করা হয়েছে!');
-    }
+    openShareModal({
+      id: notice.id,
+      type: 'notice',
+      title: notice.title,
+      category: notice.classCategory,
+      summary: notice.description
+    });
   };
 
   return (

@@ -1,15 +1,26 @@
 import React from 'react';
 import { AdmissionPost } from '../types';
 import { useApp } from '../context/AppContext';
-import { GraduationCap, Calendar, Clock, DollarSign, ArrowRight, Bookmark } from 'lucide-react';
+import { GraduationCap, Calendar, Clock, DollarSign, ArrowRight, Bookmark, Share2 } from 'lucide-react';
 
 interface AdmissionCardProps {
   admission: AdmissionPost;
 }
 
 export const AdmissionCard: React.FC<AdmissionCardProps> = ({ admission }) => {
-  const { navigateToPost, toggleBookmark, isBookmarked } = useApp();
+  const { navigateToPost, toggleBookmark, isBookmarked, openShareModal } = useApp();
   const bookmarked = isBookmarked(admission.id);
+
+  const handleShare = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    openShareModal({
+      id: admission.id,
+      type: 'admission',
+      title: admission.title,
+      category: admission.category,
+      summary: `${admission.institutionName} • ফি: ${admission.fee} • শেষ তারিখ: ${admission.deadline}`
+    });
+  };
 
   return (
     <article
@@ -23,15 +34,25 @@ export const AdmissionCard: React.FC<AdmissionCardProps> = ({ admission }) => {
             {admission.category}
           </span>
 
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleBookmark(admission.id);
-            }}
-            className="p-1 rounded-lg hover:bg-slate-100 transition-colors"
-          >
-            <Bookmark className={`w-4 h-4 ${bookmarked ? 'fill-rose-600 text-rose-600' : 'text-slate-400'}`} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleBookmark(admission.id);
+              }}
+              className="p-1 rounded-lg hover:bg-slate-100 transition-colors"
+              title="সেভ করুন"
+            >
+              <Bookmark className={`w-4 h-4 ${bookmarked ? 'fill-rose-600 text-rose-600' : 'text-slate-400'}`} />
+            </button>
+            <button
+              onClick={handleShare}
+              className="p-1 rounded-lg hover:bg-slate-100 hover:text-rose-600 transition-colors text-slate-400"
+              title="শেয়ার করুন"
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         <h3 className="text-base sm:text-lg font-bold text-slate-900 group-hover:text-rose-700 transition-colors line-clamp-2 mb-1.5 leading-snug">

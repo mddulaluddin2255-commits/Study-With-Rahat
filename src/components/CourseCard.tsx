@@ -1,16 +1,27 @@
 import React from 'react';
 import { CoursePost } from '../types';
 import { useApp } from '../context/AppContext';
-import { Clock, User, Star, Users, CheckCircle, ArrowRight, Bookmark } from 'lucide-react';
+import { Clock, User, Star, Users, CheckCircle, ArrowRight, Bookmark, Share2 } from 'lucide-react';
 
 interface CourseCardProps {
   course: CoursePost;
 }
 
 export const CourseCard: React.FC<CourseCardProps> = ({ course }) => {
-  const { navigateToPost, toggleBookmark, isBookmarked, enrolledCourseIds, enrollInCourse } = useApp();
+  const { navigateToPost, toggleBookmark, isBookmarked, enrolledCourseIds, enrollInCourse, openShareModal } = useApp();
   const bookmarked = isBookmarked(course.id);
   const isEnrolled = enrolledCourseIds.includes(course.id);
+
+  const handleShare = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    openShareModal({
+      id: course.id,
+      type: 'course',
+      title: course.title,
+      category: course.category,
+      summary: `${course.instructorName} • ${course.duration} • ${course.isPaid ? `${course.price} ৳` : 'ফ্রি কোর্স'}`
+    });
+  };
 
   const handleEnrollClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -55,8 +66,16 @@ export const CourseCard: React.FC<CourseCardProps> = ({ course }) => {
                 toggleBookmark(course.id);
               }}
               className="p-1 rounded-md bg-white/90 hover:bg-white text-slate-700 hover:text-blue-600 transition-colors shadow-xs"
+              title="সেভ করুন"
             >
               <Bookmark className={`w-3.5 h-3.5 ${bookmarked ? 'fill-blue-600 text-blue-600' : ''}`} />
+            </button>
+            <button
+              onClick={handleShare}
+              className="p-1 rounded-md bg-white/90 hover:bg-white text-slate-700 hover:text-blue-600 transition-colors shadow-xs"
+              title="শেয়ার করুন"
+            >
+              <Share2 className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
