@@ -1,0 +1,6 @@
+{
+  "name": "Study With Rahat",
+  "description": "শিক্ষা, ভর্তি, চাকরি ও ক্যারিয়ারের নির্ভরযোগ্য তথ্য — বাংলাদেশের শিক্ষার্থীদের জন্য আধুনিক অনলাইন পোর্টাল।",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
