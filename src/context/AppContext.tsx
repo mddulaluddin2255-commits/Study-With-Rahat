@@ -33,6 +33,33 @@ import {
   ADMISSION_CATEGORIES,
   SUBJECT_LIST
 } from '../data/initialData';
+import { auth, db, isFirebaseConfigured } from '../firebase/config';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc, collection, onSnapshot } from 'firebase/firestore';
+import {
+  signUpWithEmail,
+  signInWithEmail,
+  signInWithGoogle,
+  sendPasswordReset,
+  logOutUser,
+  updateUserRole,
+  toggleUserStatusInFirestore,
+  formatUserData,
+  isUserAdminEmail
+} from '../firebase/authService';
+import {
+  subscribeToCollection,
+  normalizeNotice,
+  normalizeJob,
+  normalizeResult,
+  normalizeCourse,
+  normalizeAdmission,
+  normalizeSuggestion,
+  addFirestoreDoc,
+  updateFirestoreDoc,
+  deleteFirestoreDoc,
+  seedInitialFirestoreData
+} from '../firebase/firestoreService';
 
 export type ActiveView = 
   | 'home' 
@@ -63,6 +90,10 @@ interface AppContextType {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
 
+  // Firebase Status
+  isFirebaseConnected: boolean;
+  isFirebaseSyncing: boolean;
+
   // Content
   notices: NoticePost[];
   jobs: JobPost[];
@@ -72,29 +103,29 @@ interface AppContextType {
   suggestions: SuggestionPost[];
 
   // CRUD
-  addNotice: (notice: Omit<NoticePost, 'id' | 'views'>) => void;
-  updateNotice: (id: string, notice: Partial<NoticePost>) => void;
-  deleteNotice: (id: string) => void;
+  addNotice: (notice: Omit<NoticePost, 'id' | 'views'>) => Promise<void>;
+  updateNotice: (id: string, notice: Partial<NoticePost>) => Promise<void>;
+  deleteNotice: (id: string) => Promise<void>;
 
-  addJob: (job: Omit<JobPost, 'id' | 'views'>) => void;
-  updateJob: (id: string, job: Partial<JobPost>) => void;
-  deleteJob: (id: string) => void;
+  addJob: (job: Omit<JobPost, 'id' | 'views'>) => Promise<void>;
+  updateJob: (id: string, job: Partial<JobPost>) => Promise<void>;
+  deleteJob: (id: string) => Promise<void>;
 
-  addResult: (res: Omit<ResultPost, 'id' | 'views'>) => void;
-  updateResult: (id: string, res: Partial<ResultPost>) => void;
-  deleteResult: (id: string) => void;
+  addResult: (res: Omit<ResultPost, 'id' | 'views'>) => Promise<void>;
+  updateResult: (id: string, res: Partial<ResultPost>) => Promise<void>;
+  deleteResult: (id: string) => Promise<void>;
 
-  addCourse: (course: Omit<CoursePost, 'id' | 'views'>) => void;
-  updateCourse: (id: string, course: Partial<CoursePost>) => void;
-  deleteCourse: (id: string) => void;
+  addCourse: (course: Omit<CoursePost, 'id' | 'views'>) => Promise<void>;
+  updateCourse: (id: string, course: Partial<CoursePost>) => Promise<void>;
+  deleteCourse: (id: string) => Promise<void>;
 
-  addAdmission: (adm: Omit<AdmissionPost, 'id' | 'views'>) => void;
-  updateAdmission: (id: string, adm: Partial<AdmissionPost>) => void;
-  deleteAdmission: (id: string) => void;
+  addAdmission: (adm: Omit<AdmissionPost, 'id' | 'views'>) => Promise<void>;
+  updateAdmission: (id: string, adm: Partial<AdmissionPost>) => Promise<void>;
+  deleteAdmission: (id: string) => Promise<void>;
 
-  addSuggestion: (sug: Omit<SuggestionPost, 'id' | 'views'>) => void;
-  updateSuggestion: (id: string, sug: Partial<SuggestionPost>) => void;
-  deleteSuggestion: (id: string) => void;
+  addSuggestion: (sug: Omit<SuggestionPost, 'id' | 'views'>) => Promise<void>;
+  updateSuggestion: (id: string, sug: Partial<SuggestionPost>) => Promise<void>;
+  deleteSuggestion: (id: string) => Promise<void>;
 
   togglePublish: (type: PostType, id: string) => void;
   getPostById: (type: PostType, id: string) => AnyPost | undefined;
@@ -124,6 +155,15 @@ interface AppContextType {
   verifyAdminPassword: (password: string) => boolean;
   setAdminPassword: (newPassword: string) => void;
   lockAdmin: () => void;
+  upgradeCurrentUserToAdmin: (password: string) => boolean;
+
+  // Firebase Auth methods
+  firebaseLogin: (email: string, pass: string, requestedRole?: 'admin' | 'student') => Promise<{ success: boolean; user?: AppUser; error?: string }>;
+  firebaseSignUp: (email: string, pass: string, name: string, role?: 'admin' | 'student') => Promise<{ success: boolean; user?: AppUser; error?: string }>;
+  firebaseGoogleLogin: () => Promise<{ success: boolean; user?: AppUser; error?: string }>;
+  firebaseForgotPassword: (email: string) => Promise<{ success: boolean; message: string }>;
+  firebaseLogout: () => Promise<void>;
+
   login: (email: string, role?: 'admin' | 'student', password?: string) => boolean;
   logout: () => void;
   toggleUserStatus: (id: string) => void;
@@ -173,7 +213,6 @@ function getStored<T>(key: string, fallback: T): T {
     const item = localStorage.getItem(`swr_${key}`);
     return item ? JSON.parse(item) : fallback;
   } catch (e) {
-    console.error(`Error reading ${key} from localStorage`, e);
     return fallback;
   }
 }
@@ -182,7 +221,7 @@ function setStored<T>(key: string, value: T): void {
   try {
     localStorage.setItem(`swr_${key}`, JSON.stringify(value));
   } catch (e) {
-    console.error(`Error saving ${key} to localStorage`, e);
+    // ignore
   }
 }
 
@@ -193,7 +232,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Content state
+  // Firebase Status
+  const [isFirebaseConnected] = useState<boolean>(isFirebaseConfigured);
+  const [isFirebaseSyncing, setIsFirebaseSyncing] = useState<boolean>(true);
+
+  // Content state (Initialized with localStorage / initialData, then continuously synced via Firestore)
   const [notices, setNotices] = useState<NoticePost[]>(() => getStored('notices', INITIAL_NOTICES));
   const [jobs, setJobs] = useState<JobPost[]>(() => getStored('jobs', INITIAL_JOBS));
   const [results, setResults] = useState<ResultPost[]>(() => getStored('results', INITIAL_RESULTS));
@@ -204,13 +247,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Share modal state
   const [shareTarget, setShareTarget] = useState<ShareTarget | null>(null);
 
-  const openShareModal = (target: ShareTarget) => {
-    setShareTarget(target);
-  };
-
-  const closeShareModal = () => {
-    setShareTarget(null);
-  };
+  const openShareModal = (target: ShareTarget) => setShareTarget(target);
+  const closeShareModal = () => setShareTarget(null);
 
   // Categories
   const [classes, setClasses] = useState<string[]>(() => getStored('classes', CLASS_CATEGORIES));
@@ -251,7 +289,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Enrolled courses
   const [enrolledCourseIds, setEnrolledCourseIds] = useState<string[]>(() => getStored('enrolled', ['crs-3']));
 
-  // Synchronize with localStorage
+  // Synchronize with local storage as instant local cache
   useEffect(() => setStored('notices', notices), [notices]);
   useEffect(() => setStored('jobs', jobs), [jobs]);
   useEffect(() => setStored('results', results), [results]);
@@ -274,6 +312,136 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => setStored('media', mediaItems), [mediaItems]);
   useEffect(() => setStored('views', websiteViews), [websiteViews]);
   useEffect(() => setStored('enrolled', enrolledCourseIds), [enrolledCourseIds]);
+
+  // ==========================================
+  // FIREBASE CLOUD FIRESTORE REAL-TIME SYNC
+  // ==========================================
+  useEffect(() => {
+    if (!isFirebaseConfigured) {
+      setIsFirebaseSyncing(false);
+      return;
+    }
+
+    // 1. Initial Firestore Seeding if Cloud DB is fresh/empty
+    seedInitialFirestoreData().catch((err) => {
+      console.warn('Initial seeding notice:', err);
+    });
+
+    // 2. Real-time Listeners for all collections
+    let noticesLoaded = false;
+    let jobsLoaded = false;
+    let resultsLoaded = false;
+    let coursesLoaded = false;
+    let admissionsLoaded = false;
+    let suggestionsLoaded = false;
+
+    const unsubNotices = subscribeToCollection('notices', normalizeNotice, (items) => {
+      if (items.length > 0 || noticesLoaded) {
+        setNotices(items);
+      }
+      noticesLoaded = true;
+      setIsFirebaseSyncing(false);
+    });
+
+    const unsubJobs = subscribeToCollection('jobs', normalizeJob, (items) => {
+      if (items.length > 0 || jobsLoaded) {
+        setJobs(items);
+      }
+      jobsLoaded = true;
+    });
+
+    const unsubResults = subscribeToCollection('results', normalizeResult, (items) => {
+      if (items.length > 0 || resultsLoaded) {
+        setResults(items);
+      }
+      resultsLoaded = true;
+    });
+
+    const unsubCourses = subscribeToCollection('courses', normalizeCourse, (items) => {
+      if (items.length > 0 || coursesLoaded) {
+        setCourses(items);
+      }
+      coursesLoaded = true;
+    });
+
+    const unsubAdmissions = subscribeToCollection('admissions', normalizeAdmission, (items) => {
+      if (items.length > 0 || admissionsLoaded) {
+        setAdmissions(items);
+      }
+      admissionsLoaded = true;
+    });
+
+    const unsubSuggestions = subscribeToCollection('suggestions', normalizeSuggestion, (items) => {
+      if (items.length > 0 || suggestionsLoaded) {
+        setSuggestions(items);
+      }
+      suggestionsLoaded = true;
+    });
+
+    // 3. Real-time Users collection listener
+    let unsubUsers = () => {};
+    try {
+      unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
+        const uList: AppUser[] = snap.docs.map(d => formatUserData(d.id, d.data()));
+        if (uList.length > 0) {
+          setUsers(uList);
+        }
+      }, (err) => {
+        console.warn('Users collection listener notice:', err);
+      });
+    } catch (e) {
+      // safe fallback
+    }
+
+    // 4. Firebase Authentication state persistence
+    const unsubAuth = onAuthStateChanged(auth, async (fbUser) => {
+      if (fbUser) {
+        try {
+          const uSnap = await getDoc(doc(db, 'users', fbUser.uid));
+          const appU = uSnap.exists()
+            ? formatUserData(fbUser.uid, uSnap.data(), fbUser)
+            : formatUserData(fbUser.uid, {}, fbUser);
+
+          // If email is Rahat / admin, ensure admin privileges
+          if (
+            appU.role === 'admin' ||
+            isUserAdminEmail(fbUser.email)
+          ) {
+            appU.role = 'admin';
+            setIsAdminAuthenticated(true);
+            setStored('admin_authenticated', true);
+            if (uSnap.exists() && uSnap.data().role !== 'admin') {
+              updateUserRole(fbUser.uid, 'admin').catch(console.warn);
+            }
+          }
+
+          setCurrentUser(appU);
+          setStored('currentUser', appU);
+        } catch (e) {
+          console.warn('Error fetching user profile:', e);
+        }
+      } else {
+        const storedAdmin = getStored('admin_authenticated', false);
+        if (!storedAdmin) {
+          setCurrentUser(null);
+          setStored('currentUser', null);
+          setIsAdminAuthenticated(false);
+          setStored('admin_authenticated', false);
+        }
+      }
+    });
+
+    return () => {
+      unsubNotices();
+      unsubJobs();
+      unsubResults();
+      unsubCourses();
+      unsubAdmissions();
+      unsubSuggestions();
+      unsubUsers();
+      unsubAuth();
+    };
+  }, []);
 
   // Handle direct links for shared posts (e.g. ?type=notice&id=notice-1)
   useEffect(() => {
@@ -334,180 +502,409 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // CRUD functions
-  const addNotice = (noticeData: Omit<NoticePost, 'id' | 'views'>) => {
-    const id = `notice-${Date.now()}`;
+  // ==========================================
+  // CRUD OPERATIONS WITH CLOUD FIRESTORE
+  // ==========================================
+
+  const addNotice = async (noticeData: Omit<NoticePost, 'id' | 'views'>) => {
+    const tempId = `notice-${Date.now()}`;
     const newNotice: NoticePost = {
       ...noticeData,
-      id,
+      id: tempId,
       views: 1
     };
     setNotices(prev => [newNotice, ...prev]);
-    // Add notification
+
     const newNotif: NotificationItem = {
       id: `notif-${Date.now()}`,
       title: `নতুন নোটিশ: ${noticeData.title}`,
       type: 'notice',
       date: 'এইমাত্র',
-      linkPostId: id,
+      linkPostId: tempId,
       isRead: false
     };
     setNotifications(prev => [newNotif, ...prev]);
+
+    try {
+      await addFirestoreDoc('notices', {
+        title: noticeData.title,
+        description: noticeData.description,
+        fullContent: noticeData.fullContent,
+        class: noticeData.classCategory,
+        date: noticeData.publishedDate,
+        isImportant: noticeData.isImportant,
+        attachments: noticeData.attachments || [],
+        isPublished: noticeData.isPublished,
+        views: 1
+      });
+    } catch (e) {
+      console.warn('Firestore add notice:', e);
+    }
   };
 
-  const updateNotice = (id: string, updates: Partial<NoticePost>) => {
+  const updateNotice = async (id: string, updates: Partial<NoticePost>) => {
     setNotices(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+    try {
+      const dataToUpdate: any = { ...updates };
+      if (updates.classCategory) dataToUpdate.class = updates.classCategory;
+      if (updates.publishedDate) dataToUpdate.date = updates.publishedDate;
+      await updateFirestoreDoc('notices', id, dataToUpdate);
+    } catch (e) {
+      console.warn('Firestore update notice:', e);
+    }
   };
 
-  const deleteNotice = (id: string) => {
+  const deleteNotice = async (id: string) => {
+    // Delete immediately from state and localStorage
     setNotices(prev => prev.filter(item => item.id !== id));
+    // Permanently remove from Cloud Firestore
+    try {
+      await deleteFirestoreDoc('notices', id);
+    } catch (e) {
+      console.warn('Firestore delete notice:', e);
+    }
   };
 
-  const addJob = (jobData: Omit<JobPost, 'id' | 'views'>) => {
-    const id = `job-${Date.now()}`;
+  const addJob = async (jobData: Omit<JobPost, 'id' | 'views'>) => {
+    const tempId = `job-${Date.now()}`;
     const newJob: JobPost = {
       ...jobData,
-      id,
+      id: tempId,
       views: 1
     };
     setJobs(prev => [newJob, ...prev]);
+
     const newNotif: NotificationItem = {
       id: `notif-${Date.now()}`,
       title: `চাকরির সার্কুলার: ${jobData.title}`,
       type: 'job',
       date: 'এইমাত্র',
-      linkPostId: id,
+      linkPostId: tempId,
       isRead: false
     };
     setNotifications(prev => [newNotif, ...prev]);
+
+    try {
+      await addFirestoreDoc('jobs', {
+        title: jobData.title,
+        company: jobData.orgName,
+        location: jobData.location,
+        deadline: jobData.deadline,
+        description: jobData.description,
+        salary: jobData.salary,
+        jobType: jobData.jobType,
+        vacancies: jobData.vacancies,
+        qualification: jobData.qualification,
+        instructions: jobData.instructions,
+        officialLink: jobData.officialLink,
+        circularFileUrl: jobData.circularFileUrl || '',
+        isPublished: jobData.isPublished,
+        views: 1
+      });
+    } catch (e) {
+      console.warn('Firestore add job:', e);
+    }
   };
 
-  const updateJob = (id: string, updates: Partial<JobPost>) => {
+  const updateJob = async (id: string, updates: Partial<JobPost>) => {
     setJobs(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+    try {
+      const dataToUpdate: any = { ...updates };
+      if (updates.orgName) dataToUpdate.company = updates.orgName;
+      await updateFirestoreDoc('jobs', id, dataToUpdate);
+    } catch (e) {
+      console.warn('Firestore update job:', e);
+    }
   };
 
-  const deleteJob = (id: string) => {
+  const deleteJob = async (id: string) => {
     setJobs(prev => prev.filter(item => item.id !== id));
+    try {
+      await deleteFirestoreDoc('jobs', id);
+    } catch (e) {
+      console.warn('Firestore delete job:', e);
+    }
   };
 
-  const addResult = (resData: Omit<ResultPost, 'id' | 'views'>) => {
-    const id = `res-${Date.now()}`;
+  const addResult = async (resData: Omit<ResultPost, 'id' | 'views'>) => {
+    const tempId = `res-${Date.now()}`;
     const newRes: ResultPost = {
       ...resData,
-      id,
+      id: tempId,
       views: 1
     };
     setResults(prev => [newRes, ...prev]);
+
     const newNotif: NotificationItem = {
       id: `notif-${Date.now()}`,
       title: `রেজাল্ট আপডেট: ${resData.title}`,
       type: 'result',
       date: 'এইমাত্র',
-      linkPostId: id,
+      linkPostId: tempId,
       isRead: false
     };
     setNotifications(prev => [newNotif, ...prev]);
+
+    try {
+      await addFirestoreDoc('results', {
+        title: resData.title,
+        class: resData.examName,
+        year: resData.year,
+        pdfUrl: resData.officialLink || '',
+        boardOrUniversity: resData.boardOrUniversity,
+        checkInstructions: resData.checkInstructions,
+        officialLink: resData.officialLink,
+        category: resData.category,
+        smsFormat: resData.smsFormat || '',
+        isPublished: resData.isPublished,
+        views: 1
+      });
+    } catch (e) {
+      console.warn('Firestore add result:', e);
+    }
   };
 
-  const updateResult = (id: string, updates: Partial<ResultPost>) => {
+  const updateResult = async (id: string, updates: Partial<ResultPost>) => {
     setResults(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+    try {
+      const dataToUpdate: any = { ...updates };
+      if (updates.examName) dataToUpdate.class = updates.examName;
+      await updateFirestoreDoc('results', id, dataToUpdate);
+    } catch (e) {
+      console.warn('Firestore update result:', e);
+    }
   };
 
-  const deleteResult = (id: string) => {
+  const deleteResult = async (id: string) => {
     setResults(prev => prev.filter(item => item.id !== id));
+    try {
+      await deleteFirestoreDoc('results', id);
+    } catch (e) {
+      console.warn('Firestore delete result:', e);
+    }
   };
 
-  const addCourse = (courseData: Omit<CoursePost, 'id' | 'views'>) => {
-    const id = `crs-${Date.now()}`;
+  const addCourse = async (courseData: Omit<CoursePost, 'id' | 'views'>) => {
+    const tempId = `crs-${Date.now()}`;
     const newCourse: CoursePost = {
       ...courseData,
-      id,
+      id: tempId,
       views: 1
     };
     setCourses(prev => [newCourse, ...prev]);
+
+    try {
+      await addFirestoreDoc('courses', {
+        title: courseData.title,
+        description: courseData.shortDesc,
+        fullDesc: courseData.fullDesc,
+        imageUrl: courseData.thumbnail,
+        price: courseData.price,
+        instructorName: courseData.instructorName,
+        instructorRole: courseData.instructorRole,
+        duration: courseData.duration,
+        isPaid: courseData.isPaid,
+        category: courseData.category,
+        enrollCount: courseData.enrollCount,
+        rating: courseData.rating,
+        curriculum: courseData.curriculum || [],
+        isPublished: courseData.isPublished,
+        views: 1
+      });
+    } catch (e) {
+      console.warn('Firestore add course:', e);
+    }
   };
 
-  const updateCourse = (id: string, updates: Partial<CoursePost>) => {
+  const updateCourse = async (id: string, updates: Partial<CoursePost>) => {
     setCourses(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+    try {
+      const dataToUpdate: any = { ...updates };
+      if (updates.shortDesc) dataToUpdate.description = updates.shortDesc;
+      if (updates.thumbnail) dataToUpdate.imageUrl = updates.thumbnail;
+      await updateFirestoreDoc('courses', id, dataToUpdate);
+    } catch (e) {
+      console.warn('Firestore update course:', e);
+    }
   };
 
-  const deleteCourse = (id: string) => {
+  const deleteCourse = async (id: string) => {
     setCourses(prev => prev.filter(item => item.id !== id));
+    try {
+      await deleteFirestoreDoc('courses', id);
+    } catch (e) {
+      console.warn('Firestore delete course:', e);
+    }
   };
 
-  const addAdmission = (admData: Omit<AdmissionPost, 'id' | 'views'>) => {
-    const id = `adm-${Date.now()}`;
+  const addAdmission = async (admData: Omit<AdmissionPost, 'id' | 'views'>) => {
+    const tempId = `adm-${Date.now()}`;
     const newAdm: AdmissionPost = {
       ...admData,
-      id,
+      id: tempId,
       views: 1
     };
     setAdmissions(prev => [newAdm, ...prev]);
+
+    try {
+      await addFirestoreDoc('admissions', {
+        title: admData.title,
+        institution: admData.institutionName,
+        deadline: admData.deadline,
+        description: admData.applicationProcess,
+        category: admData.category,
+        startDate: admData.startDate,
+        eligibility: admData.eligibility,
+        fee: admData.fee,
+        officialLink: admData.officialLink,
+        isPublished: admData.isPublished,
+        views: 1
+      });
+    } catch (e) {
+      console.warn('Firestore add admission:', e);
+    }
   };
 
-  const updateAdmission = (id: string, updates: Partial<AdmissionPost>) => {
+  const updateAdmission = async (id: string, updates: Partial<AdmissionPost>) => {
     setAdmissions(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+    try {
+      const dataToUpdate: any = { ...updates };
+      if (updates.institutionName) dataToUpdate.institution = updates.institutionName;
+      await updateFirestoreDoc('admissions', id, dataToUpdate);
+    } catch (e) {
+      console.warn('Firestore update admission:', e);
+    }
   };
 
-  const deleteAdmission = (id: string) => {
+  const deleteAdmission = async (id: string) => {
     setAdmissions(prev => prev.filter(item => item.id !== id));
+    try {
+      await deleteFirestoreDoc('admissions', id);
+    } catch (e) {
+      console.warn('Firestore delete admission:', e);
+    }
   };
 
-  const addSuggestion = (sugData: Omit<SuggestionPost, 'id' | 'views'>) => {
-    const id = `sug-${Date.now()}`;
+  const addSuggestion = async (sugData: Omit<SuggestionPost, 'id' | 'views'>) => {
+    const tempId = `sug-${Date.now()}`;
     const newSug: SuggestionPost = {
       ...sugData,
-      id,
+      id: tempId,
       views: 1
     };
     setSuggestions(prev => [newSug, ...prev]);
+
+    try {
+      await addFirestoreDoc('suggestions', {
+        class: sugData.classCategory,
+        subject: sugData.subject,
+        title: sugData.title,
+        description: sugData.content,
+        pdfUrl: sugData.pdfUrl || '',
+        downloadCount: sugData.downloadCount,
+        importantQuestions: sugData.importantQuestions || [],
+        isPublished: sugData.isPublished,
+        views: 1
+      });
+    } catch (e) {
+      console.warn('Firestore add suggestion:', e);
+    }
   };
 
-  const updateSuggestion = (id: string, updates: Partial<SuggestionPost>) => {
+  const updateSuggestion = async (id: string, updates: Partial<SuggestionPost>) => {
     setSuggestions(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+    try {
+      const dataToUpdate: any = { ...updates };
+      if (updates.classCategory) dataToUpdate.class = updates.classCategory;
+      if (updates.content) dataToUpdate.description = updates.content;
+      await updateFirestoreDoc('suggestions', id, dataToUpdate);
+    } catch (e) {
+      console.warn('Firestore update suggestion:', e);
+    }
   };
 
-  const deleteSuggestion = (id: string) => {
+  const deleteSuggestion = async (id: string) => {
     setSuggestions(prev => prev.filter(item => item.id !== id));
+    try {
+      await deleteFirestoreDoc('suggestions', id);
+    } catch (e) {
+      console.warn('Firestore delete suggestion:', e);
+    }
   };
 
   const togglePublish = (type: PostType, id: string) => {
     switch (type) {
       case 'notice':
-        setNotices(prev => prev.map(item => item.id === id ? { ...item, isPublished: !item.isPublished } : item));
+        setNotices(prev => prev.map(item => {
+          if (item.id === id) {
+            const next = !item.isPublished;
+            updateFirestoreDoc('notices', id, { isPublished: next }).catch(console.warn);
+            return { ...item, isPublished: next };
+          }
+          return item;
+        }));
         break;
       case 'job':
-        setJobs(prev => prev.map(item => item.id === id ? { ...item, isPublished: !item.isPublished } : item));
+        setJobs(prev => prev.map(item => {
+          if (item.id === id) {
+            const next = !item.isPublished;
+            updateFirestoreDoc('jobs', id, { isPublished: next }).catch(console.warn);
+            return { ...item, isPublished: next };
+          }
+          return item;
+        }));
         break;
       case 'result':
-        setResults(prev => prev.map(item => item.id === id ? { ...item, isPublished: !item.isPublished } : item));
+        setResults(prev => prev.map(item => {
+          if (item.id === id) {
+            const next = !item.isPublished;
+            updateFirestoreDoc('results', id, { isPublished: next }).catch(console.warn);
+            return { ...item, isPublished: next };
+          }
+          return item;
+        }));
         break;
       case 'course':
-        setCourses(prev => prev.map(item => item.id === id ? { ...item, isPublished: !item.isPublished } : item));
+        setCourses(prev => prev.map(item => {
+          if (item.id === id) {
+            const next = !item.isPublished;
+            updateFirestoreDoc('courses', id, { isPublished: next }).catch(console.warn);
+            return { ...item, isPublished: next };
+          }
+          return item;
+        }));
         break;
       case 'admission':
-        setAdmissions(prev => prev.map(item => item.id === id ? { ...item, isPublished: !item.isPublished } : item));
+        setAdmissions(prev => prev.map(item => {
+          if (item.id === id) {
+            const next = !item.isPublished;
+            updateFirestoreDoc('admissions', id, { isPublished: next }).catch(console.warn);
+            return { ...item, isPublished: next };
+          }
+          return item;
+        }));
         break;
       case 'suggestion':
-        setSuggestions(prev => prev.map(item => item.id === id ? { ...item, isPublished: !item.isPublished } : item));
+        setSuggestions(prev => prev.map(item => {
+          if (item.id === id) {
+            const next = !item.isPublished;
+            updateFirestoreDoc('suggestions', id, { isPublished: next }).catch(console.warn);
+            return { ...item, isPublished: next };
+          }
+          return item;
+        }));
         break;
     }
   };
 
   const getPostById = (type: PostType, id: string): AnyPost | undefined => {
     switch (type) {
-      case 'notice':
-        return notices.find(n => n.id === id);
-      case 'job':
-        return jobs.find(j => j.id === id);
-      case 'result':
-        return results.find(r => r.id === id);
-      case 'course':
-        return courses.find(c => c.id === id);
-      case 'admission':
-        return admissions.find(a => a.id === id);
-      case 'suggestion':
-        return suggestions.find(s => s.id === id);
+      case 'notice': return notices.find(n => n.id === id);
+      case 'job': return jobs.find(j => j.id === id);
+      case 'result': return results.find(r => r.id === id);
+      case 'course': return courses.find(c => c.id === id);
+      case 'admission': return admissions.find(a => a.id === id);
+      case 'suggestion': return suggestions.find(s => s.id === id);
     }
   };
 
@@ -523,7 +920,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addAdmissionCategory = (name: string) => setAdmissionCategories(prev => prev.includes(name) ? prev : [...prev, name]);
   const deleteAdmissionCategory = (name: string) => setAdmissionCategories(prev => prev.filter(c => c !== name));
 
-  // Users & Auth
+  // ==========================================
+  // AUTHENTICATION & USERS
+  // ==========================================
+
   const verifyAdminPassword = (enteredPassword: string): boolean => {
     if (enteredPassword.trim() === adminPassword.trim()) {
       setIsAdminAuthenticated(true);
@@ -558,6 +958,109 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setStored('admin_password', newPassword);
   };
 
+  const upgradeCurrentUserToAdmin = (password: string): boolean => {
+    if (password.trim() === adminPassword.trim()) {
+      setIsAdminAuthenticated(true);
+      setStored('admin_authenticated', true);
+      if (currentUser) {
+        const updated: AppUser = { ...currentUser, role: 'admin' };
+        setCurrentUser(updated);
+        setStored('currentUser', updated);
+        updateUserRole(currentUser.id, 'admin').catch(console.warn);
+      } else {
+        const adminUser: AppUser = {
+          id: 'usr-admin-rahat',
+          name: 'এডমিন রাহাত',
+          email: 'admin@studywithrahat.com',
+          role: 'admin',
+          bookmarkedIds: [],
+          isActive: true,
+          createdAt: new Date().toISOString()
+        };
+        setCurrentUser(adminUser);
+        setStored('currentUser', adminUser);
+      }
+      return true;
+    }
+    return false;
+  };
+
+  // Firebase Auth wrappers
+  const firebaseLogin = async (email: string, pass: string, requestedRole?: 'admin' | 'student') => {
+    // 1. Direct Admin Master Password Check
+    if (
+      (requestedRole === 'admin' || isUserAdminEmail(email)) &&
+      pass.trim() === adminPassword.trim()
+    ) {
+      setIsAdminAuthenticated(true);
+      setStored('admin_authenticated', true);
+      const adminUser: AppUser = {
+        id: 'usr-admin-rahat',
+        name: 'এডমিন রাহাত',
+        email: email || 'admin@studywithrahat.com',
+        role: 'admin',
+        bookmarkedIds: [],
+        isActive: true,
+        createdAt: new Date().toISOString()
+      };
+      setCurrentUser(adminUser);
+      setStored('currentUser', adminUser);
+      return { success: true, user: adminUser };
+    }
+
+    const res = await signInWithEmail(email, pass);
+    if (res.success && res.user) {
+      if (isUserAdminEmail(res.user.email) || requestedRole === 'admin' || res.user.role === 'admin') {
+        res.user.role = 'admin';
+        setIsAdminAuthenticated(true);
+        setStored('admin_authenticated', true);
+        updateUserRole(res.user.id, 'admin').catch(console.warn);
+      }
+      setCurrentUser(res.user);
+      setStored('currentUser', res.user);
+    }
+    return res;
+  };
+
+  const firebaseSignUp = async (email: string, pass: string, name: string, role: 'admin' | 'student' = 'student') => {
+    const assignedRole = (isUserAdminEmail(email) || role === 'admin') ? 'admin' : 'student';
+    const res = await signUpWithEmail(email, pass, name, assignedRole);
+    if (res.success && res.user) {
+      if (assignedRole === 'admin') {
+        res.user.role = 'admin';
+        setIsAdminAuthenticated(true);
+        setStored('admin_authenticated', true);
+      }
+      setCurrentUser(res.user);
+      setStored('currentUser', res.user);
+    }
+    return res;
+  };
+
+  const firebaseGoogleLogin = async () => {
+    const res = await signInWithGoogle();
+    if (res.success && res.user) {
+      if (isUserAdminEmail(res.user.email) || res.user.role === 'admin') {
+        res.user.role = 'admin';
+        setIsAdminAuthenticated(true);
+        setStored('admin_authenticated', true);
+        updateUserRole(res.user.id, 'admin').catch(console.warn);
+      }
+      setCurrentUser(res.user);
+      setStored('currentUser', res.user);
+    }
+    return res;
+  };
+
+  const firebaseForgotPassword = async (email: string) => {
+    return await sendPasswordReset(email);
+  };
+
+  const firebaseLogout = async () => {
+    await logOutUser();
+    logout();
+  };
+
   const login = (email: string, role: 'admin' | 'student' = 'student', password?: string): boolean => {
     if (role === 'admin') {
       if (!password || password.trim() !== adminPassword.trim()) {
@@ -581,7 +1084,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       role,
       bookmarkedIds: [],
       isActive: true,
-      createdAt: '২০২৬-০৩-১৪'
+      createdAt: new Date().toISOString()
     };
     setUsers(prev => [...prev, newUser]);
     setCurrentUser(newUser);
@@ -597,10 +1100,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const toggleUserStatus = (id: string) => {
+    const userToToggle = users.find(u => u.id === id);
+    if (userToToggle) {
+      toggleUserStatusInFirestore(id, userToToggle.isActive).catch(console.warn);
+    }
     setUsers(prev => prev.map(u => u.id === id ? { ...u, isActive: !u.isActive } : u));
   };
 
   const changeUserRole = (id: string, role: 'admin' | 'student') => {
+    updateUserRole(id, role).catch(console.warn);
     setUsers(prev => prev.map(u => u.id === id ? { ...u, role } : u));
   };
 
@@ -632,6 +1140,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Site Settings
   const updateSiteSettings = (updates: Partial<SiteSettings>) => {
     setSiteSettings(prev => ({ ...prev, ...updates }));
+    updateFirestoreDoc('settings', 'site_config', updates).catch(console.warn);
   };
 
   // Ads
@@ -648,7 +1157,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newItem: MediaItem = {
       ...item,
       id: `med-${Date.now()}`,
-      uploadedAt: '২০২৬-০৩-১৪'
+      uploadedAt: new Date().toISOString()
     };
     setMediaItems(prev => [newItem, ...prev]);
   };
@@ -657,12 +1166,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setMediaItems(prev => prev.filter(m => m.id !== id));
   };
 
-  // Enroll in course
   const enrollInCourse = (courseId: string) => {
     if (!enrolledCourseIds.includes(courseId)) {
       setEnrolledCourseIds(prev => [...prev, courseId]);
-      // increment course enrollCount
-      setCourses(prev => prev.map(c => c.id === courseId ? { ...c, enrollCount: c.enrollCount + 1 } : c));
     }
   };
 
@@ -680,6 +1186,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         searchQuery,
         setSearchQuery,
 
+        isFirebaseConnected,
+        isFirebaseSyncing,
+
         notices,
         jobs,
         results,
@@ -690,21 +1199,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addNotice,
         updateNotice,
         deleteNotice,
+
         addJob,
         updateJob,
         deleteJob,
+
         addResult,
         updateResult,
         deleteResult,
+
         addCourse,
         updateCourse,
         deleteCourse,
+
         addAdmission,
         updateAdmission,
         deleteAdmission,
+
         addSuggestion,
         updateSuggestion,
         deleteSuggestion,
+
         togglePublish,
         getPostById,
 
@@ -731,6 +1246,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         verifyAdminPassword,
         setAdminPassword,
         lockAdmin,
+        upgradeCurrentUserToAdmin,
+
+        firebaseLogin,
+        firebaseSignUp,
+        firebaseGoogleLogin,
+        firebaseForgotPassword,
+        firebaseLogout,
+
         login,
         logout,
         toggleUserStatus,

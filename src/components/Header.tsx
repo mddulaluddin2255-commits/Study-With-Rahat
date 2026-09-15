@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 
 interface HeaderProps {
-  onOpenAuth: () => void;
+  onOpenAuth: (tab?: 'login' | 'admin' | 'register') => void;
   onOpenSearch: () => void;
 }
 
@@ -239,7 +239,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuth, onOpenSearch }) => {
                 </button>
               ) : (
                 <button
-                  onClick={onOpenAuth}
+                  onClick={() => onOpenAuth('login')}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-900 rounded-xl text-xs font-semibold border border-blue-200 transition-colors cursor-pointer"
                 >
                   <User className="w-4 h-4 text-blue-600" />
@@ -248,13 +248,23 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuth, onOpenSearch }) => {
               )}
             </div>
           ) : (
-            <button
-              onClick={onOpenAuth}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs hover:shadow-md transition-all cursor-pointer"
-            >
-              <User className="w-4 h-4" />
-              <span>লগইন / এডমিন</span>
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => onOpenAuth('login')}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs hover:shadow-md transition-all cursor-pointer"
+              >
+                <User className="w-3.5 h-3.5" />
+                <span>লগইন</span>
+              </button>
+              <button
+                onClick={() => onOpenAuth('admin')}
+                className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 hover:border-amber-400 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                title="এডমিন প্যানেল লগইন"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                <span>এডমিন</span>
+              </button>
+            </div>
           )}
 
           {/* Mobile Hamburger Toggle */}

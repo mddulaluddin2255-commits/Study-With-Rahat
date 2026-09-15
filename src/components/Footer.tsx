@@ -171,6 +171,15 @@ export const Footer: React.FC = () => {
                       Sitemap (সাইটম্যাপ)
                     </button>
                   </div>
+                  <div className="pt-1.5 border-t border-slate-800/80">
+                    <button
+                      onClick={() => navigateTo('admin')}
+                      className="text-amber-400/90 hover:text-amber-300 font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Shield className="w-3 h-3 text-amber-400" />
+                      <span>এডমিন প্যানেল</span>
+                    </button>
+                  </div>
                 </li>
               </ul>
             </div>

@@ -31,6 +31,9 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { NoticePost, JobPost, ResultPost, CoursePost, AdmissionPost, SuggestionPost } from '../types';
+import { FirebaseFileUpload } from './FirebaseFileUpload';
+import { AdminUsersTab } from './admin/AdminUsersTab';
+import { FirebaseRulesModal } from './admin/FirebaseRulesModal';
 
 export const AdminDashboard: React.FC = () => {
   const {
@@ -46,6 +49,7 @@ export const AdminDashboard: React.FC = () => {
     courses,
     admissions,
     suggestions,
+    users,
     ads,
     siteSettings,
     websiteViews,
@@ -74,8 +78,9 @@ export const AdminDashboard: React.FC = () => {
     navigateTo
   } = useApp();
 
-  type TabKey = 'overview' | 'notices' | 'jobs' | 'results' | 'courses' | 'admissions' | 'suggestions' | 'ads' | 'settings';
+  type TabKey = 'overview' | 'notices' | 'jobs' | 'results' | 'courses' | 'admissions' | 'suggestions' | 'users' | 'ads' | 'settings';
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
+  const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
 
   // Modal State for Adding/Editing
   const [modalOpen, setModalOpen] = useState(false);
@@ -435,6 +440,7 @@ export const AdminDashboard: React.FC = () => {
           { key: 'courses', label: `কোর্স (${courses.length})`, icon: BookOpen },
           { key: 'admissions', label: `ভর্তি (${admissions.length})`, icon: GraduationCap },
           { key: 'suggestions', label: `সাজেশন (${suggestions.length})`, icon: Sparkles },
+          { key: 'users', label: `ইউজার তালিকা (${users.length})`, icon: Users },
           { key: 'ads', label: 'বিজ্ঞাপন (Ads)', icon: DollarSign },
           { key: 'settings', label: 'সাইট সেটিংস', icon: Settings },
         ].map(tab => {
@@ -460,11 +466,11 @@ export const AdminDashboard: React.FC = () => {
       {/* TAB 1: OVERVIEW */}
       {activeTab === 'overview' && (
         <div className="space-y-8">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
               <span className="text-xs text-slate-500 font-semibold block mb-1">মোট নোটিশ</span>
               <span className="text-2xl font-black text-blue-600">{notices.length}</span>
-              <span className="text-[10px] text-emerald-600 block mt-1 font-medium">১০টি শ্রেণিতে সক্রিয়</span>
+              <span className="text-[10px] text-emerald-600 block mt-1 font-medium">Firestore সিঙ্কড</span>
             </div>
 
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
@@ -489,6 +495,12 @@ export const AdminDashboard: React.FC = () => {
               <span className="text-xs text-slate-500 font-semibold block mb-1">বোর্ড সাজেশন</span>
               <span className="text-2xl font-black text-teal-600">{suggestions.length}</span>
               <span className="text-[10px] text-slate-400 block mt-1">CQ ও MCQ নোটস</span>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-xs text-slate-500 font-semibold block mb-1">নিবন্ধিত ইউজার</span>
+              <span className="text-2xl font-black text-amber-600">{users.length}</span>
+              <span className="text-[10px] text-amber-600 block mt-1 font-medium">Firebase Auth/DB</span>
             </div>
 
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
@@ -998,13 +1010,63 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
+      {/* TAB: USERS MANAGEMENT */}
+      {activeTab === 'users' && <AdminUsersTab />}
+
       {/* TAB 9: SITE SETTINGS */}
       {activeTab === 'settings' && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 sm:p-8 max-w-3xl">
-          <h3 className="text-base font-bold text-slate-900 mb-2">ওয়েবসাইট ব্র্যান্ডিং ও সেটিংস</h3>
-          <p className="text-xs text-slate-500 mb-6">সাইটের নাম, ট্যাগলাইন, হটলাইন ও সোশ্যাল লিংক পরিবর্তন করুন।</p>
+        <div className="space-y-8 max-w-3xl">
+          {/* Firebase Cloud Firestore & Storage Status Card */}
+          <div className="p-6 bg-gradient-to-br from-slate-900 to-blue-950 text-white rounded-3xl border border-blue-900 shadow-md">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center">
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-base font-bold flex items-center gap-2">
+                    <span>Firebase Cloud Firestore & Storage</span>
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-semibold">
+                      লাইভ সিঙ্ক সক্রিয়
+                    </span>
+                  </h4>
+                  <p className="text-xs text-slate-300 mt-0.5">
+                    পোস্ট ডিলিট ও আপডেটের ডেটা সরাসরি ক্লাউড ডাটাবেজে পারসিস্ট হচ্ছে — সকল ব্রাউজারে ইনস্ট্যান্ট রিয়েল-টাইম সিঙ্ক।
+                  </p>
+                </div>
+              </div>
 
-          <form onSubmit={handleSaveSettings} className="space-y-4 text-xs sm:text-sm">
+              <button
+                type="button"
+                onClick={() => setIsRulesModalOpen(true)}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs transition-colors cursor-pointer shrink-0 shadow-xs flex items-center gap-1.5"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span>সিকিউরিটি রুলস দেখুন</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-white/10 text-xs">
+              <div className="bg-white/5 p-3 rounded-xl border border-white/10">
+                <span className="text-slate-400 block text-[11px]">Firebase Project ID</span>
+                <span className="font-mono font-bold text-amber-300">study-with-rahat-pvt</span>
+              </div>
+              <div className="bg-white/5 p-3 rounded-xl border border-white/10">
+                <span className="text-slate-400 block text-[11px]">Firestore Collections</span>
+                <span className="font-mono text-emerald-300">users, notices, jobs, results...</span>
+              </div>
+              <div className="bg-white/5 p-3 rounded-xl border border-white/10">
+                <span className="text-slate-400 block text-[11px]">Storage Bucket</span>
+                <span className="font-mono text-blue-300 truncate block">study-with-rahat-pvt.firebasestorage.app</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 sm:p-8">
+            <h3 className="text-base font-bold text-slate-900 mb-2">ওয়েবসাইট ব্র্যান্ডিং ও সেটিংস</h3>
+            <p className="text-xs text-slate-500 mb-6">সাইটের নাম, ট্যাগলাইন, হটলাইন ও সোশ্যাল লিংক পরিবর্তন করুন।</p>
+
+            <form onSubmit={handleSaveSettings} className="space-y-4 text-xs sm:text-sm">
             <div>
               <label className="block font-semibold text-slate-700 mb-1">ওয়েবসাইটের নাম</label>
               <input
@@ -1164,6 +1226,7 @@ export const AdminDashboard: React.FC = () => {
             </div>
           </div>
         </div>
+      </div>
       )}
 
       {/* DYNAMIC CREATE / EDIT MODAL */}
@@ -1240,13 +1303,29 @@ export const AdminDashboard: React.FC = () => {
                   <div>
                     <label className="block font-medium text-slate-700 mb-1">পূর্ণাঙ্গ নোটিশের বিবরণ</label>
                     <textarea
-                      rows={5}
+                      rows={4}
                       value={formData.fullContent || ''}
                       onChange={e => setFormData({ ...formData, fullContent: e.target.value })}
                       placeholder="বিস্তারিত নোটিশের লেখা..."
                       className="w-full p-2.5 border border-slate-200 rounded-xl"
                     />
                   </div>
+
+                  <FirebaseFileUpload
+                    label="বিজ্ঞপ্তির অফিসিয়াল PDF বা ছবি (Firebase Storage)"
+                    folder="notices"
+                    accept=".pdf,image/*"
+                    currentUrl={formData.pdfUrl || formData.circularFileUrl || (formData.attachments && formData.attachments[0]?.url) || ''}
+                    onUploadSuccess={(url, name) => {
+                      setFormData({
+                        ...formData,
+                        pdfUrl: url,
+                        circularFileUrl: url,
+                        attachments: [{ name: name || 'বিজ্ঞপ্তি ফাইল', url, type: url.includes('.pdf') ? 'pdf' : 'image' }]
+                      });
+                    }}
+                    onRemove={() => setFormData({ ...formData, pdfUrl: '', circularFileUrl: '', attachments: [] })}
+                  />
                 </>
               )}
 
@@ -1317,12 +1396,21 @@ export const AdminDashboard: React.FC = () => {
                   <div>
                     <label className="block font-medium text-slate-700 mb-1">বিস্তারিত সার্কুলার বিবরণ</label>
                     <textarea
-                      rows={4}
+                      rows={3}
                       value={formData.description || ''}
                       onChange={e => setFormData({ ...formData, description: e.target.value })}
                       className="w-full p-2.5 border border-slate-200 rounded-xl"
                     />
                   </div>
+
+                  <FirebaseFileUpload
+                    label="চাকরির অফিসিয়াল সার্কুলার ফাইল / PDF (Firebase Storage)"
+                    folder="jobs"
+                    accept=".pdf,image/*"
+                    currentUrl={formData.circularFileUrl || ''}
+                    onUploadSuccess={(url) => setFormData({ ...formData, circularFileUrl: url })}
+                    onRemove={() => setFormData({ ...formData, circularFileUrl: '' })}
+                  />
                 </>
               )}
 
@@ -1350,6 +1438,26 @@ export const AdminDashboard: React.FC = () => {
                       />
                     </div>
                   </div>
+
+                  <div>
+                    <label className="block font-medium text-slate-700 mb-1">রেজাল্ট সার্ভার বা অফিশিয়াল লিংক</label>
+                    <input
+                      type="text"
+                      value={formData.officialLink || ''}
+                      onChange={e => setFormData({ ...formData, officialLink: e.target.value })}
+                      placeholder="http://www.educationboardresults.gov.bd"
+                      className="w-full p-2 border border-slate-200 rounded-xl"
+                    />
+                  </div>
+
+                  <FirebaseFileUpload
+                    label="রেজাল্ট শীট / গেজেট PDF ফাইল (Firebase Storage)"
+                    folder="results"
+                    accept=".pdf,image/*"
+                    currentUrl={formData.pdfUrl || ''}
+                    onUploadSuccess={(url) => setFormData({ ...formData, pdfUrl: url, officialLink: formData.officialLink || url })}
+                    onRemove={() => setFormData({ ...formData, pdfUrl: '' })}
+                  />
                 </>
               )}
 
@@ -1379,6 +1487,138 @@ export const AdminDashboard: React.FC = () => {
                       />
                     </div>
                   </div>
+
+                  <div>
+                    <label className="block font-medium text-slate-700 mb-1">কোর্সের বিবরণ</label>
+                    <textarea
+                      rows={3}
+                      value={formData.description || ''}
+                      onChange={e => setFormData({ ...formData, description: e.target.value })}
+                      placeholder="কোর্সের বিস্তারিত তথ্য..."
+                      className="w-full p-2.5 border border-slate-200 rounded-xl"
+                    />
+                  </div>
+
+                  <FirebaseFileUpload
+                    label="কোর্স ব্যানার / থাম্বনেইল ছবি (Firebase Storage)"
+                    folder="courses"
+                    accept="image/*"
+                    currentUrl={formData.thumbnail || ''}
+                    onUploadSuccess={(url) => setFormData({ ...formData, thumbnail: url })}
+                    onRemove={() => setFormData({ ...formData, thumbnail: '' })}
+                  />
+                </>
+              )}
+
+              {/* Admission Specific */}
+              {modalType === 'admission' && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-medium text-slate-700 mb-1">বিশ্ববিদ্যালয় / প্রতিষ্ঠান *</label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.institutionName || ''}
+                        onChange={e => setFormData({ ...formData, institutionName: e.target.value })}
+                        placeholder="যেমন: ঢাকা বিশ্ববিদ্যালয়"
+                        className="w-full p-2 border border-slate-200 rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-medium text-slate-700 mb-1">আবেদনের শেষ তারিখ *</label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.deadline || ''}
+                        onChange={e => setFormData({ ...formData, deadline: e.target.value })}
+                        placeholder="যেমন: ২৫ এপ্রিল ২০২৬"
+                        className="w-full p-2 border border-slate-200 rounded-xl font-bold text-amber-700"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-medium text-slate-700 mb-1">অনলাইন আবেদনের লিংক</label>
+                    <input
+                      type="text"
+                      value={formData.officialLink || ''}
+                      onChange={e => setFormData({ ...formData, officialLink: e.target.value })}
+                      placeholder="https://..."
+                      className="w-full p-2 border border-slate-200 rounded-xl"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-medium text-slate-700 mb-1">ভর্তি নির্দেশিকা ও যোগ্যতা</label>
+                    <textarea
+                      rows={3}
+                      value={formData.applicationProcess || formData.description || ''}
+                      onChange={e => setFormData({ ...formData, applicationProcess: e.target.value, description: e.target.value })}
+                      placeholder="ভর্তির যোগ্যতা ও প্রক্রিয়া..."
+                      className="w-full p-2.5 border border-slate-200 rounded-xl"
+                    />
+                  </div>
+
+                  <FirebaseFileUpload
+                    label="ভর্তি প্রসপেক্টাস / সার্কুলার ফাইল (Firebase Storage)"
+                    folder="admissions"
+                    accept=".pdf,image/*"
+                    currentUrl={formData.prospectusUrl || formData.circularFileUrl || ''}
+                    onUploadSuccess={(url) => setFormData({ ...formData, prospectusUrl: url, circularFileUrl: url })}
+                    onRemove={() => setFormData({ ...formData, prospectusUrl: '', circularFileUrl: '' })}
+                  />
+                </>
+              )}
+
+              {/* Suggestion Specific */}
+              {modalType === 'suggestion' && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-medium text-slate-700 mb-1">শ্রেণি / বিভাগ</label>
+                      <select
+                        value={formData.classCategory || 'SSC'}
+                        onChange={e => setFormData({ ...formData, classCategory: e.target.value })}
+                        className="w-full p-2 border border-slate-200 rounded-xl"
+                      >
+                        {classes.filter(c => c !== 'All').map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block font-medium text-slate-700 mb-1">বিষয় (Subject) *</label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.subject || ''}
+                        onChange={e => setFormData({ ...formData, subject: e.target.value })}
+                        placeholder="যেমন: উচ্চতর গণিত"
+                        className="w-full p-2 border border-slate-200 rounded-xl"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-medium text-slate-700 mb-1">সাজেশন বিবরণ ও প্রস্তুতি টিপস</label>
+                    <textarea
+                      rows={3}
+                      value={formData.content || ''}
+                      onChange={e => setFormData({ ...formData, content: e.target.value })}
+                      placeholder="সাজেশনের গুরুত্বপূর্ণ অধ্যায় বা নির্দেশিকা..."
+                      className="w-full p-2.5 border border-slate-200 rounded-xl"
+                    />
+                  </div>
+
+                  <FirebaseFileUpload
+                    label="হ্যান্ডনোট / পূর্ণাঙ্গ সাজেশন PDF (Firebase Storage)"
+                    folder="suggestions"
+                    accept=".pdf,image/*"
+                    currentUrl={formData.pdfUrl || ''}
+                    onUploadSuccess={(url) => setFormData({ ...formData, pdfUrl: url })}
+                    onRemove={() => setFormData({ ...formData, pdfUrl: '' })}
+                  />
                 </>
               )}
 
@@ -1437,6 +1677,12 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Firebase Security Rules Modal */}
+      <FirebaseRulesModal
+        isOpen={isRulesModalOpen}
+        onClose={() => setIsRulesModalOpen(false)}
+      />
     </div>
   );
 };

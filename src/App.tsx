@@ -23,13 +23,19 @@ const MainContent: React.FC = () => {
   const { activeView, shareTarget, closeShareModal } = useApp();
   const [searchOpen, setSearchOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
+  const [authDefaultTab, setAuthDefaultTab] = useState<'login' | 'admin' | 'register'>('login');
+
+  const handleOpenAuth = (tab: 'login' | 'admin' | 'register' = 'login') => {
+    setAuthDefaultTab(tab);
+    setAuthOpen(true);
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-100 font-sans text-slate-900 antialiased selection:bg-blue-600 selection:text-white pb-14 md:pb-0">
       {/* 1. Sticky Navigation Header with News Ticker */}
       <Header
         onOpenSearch={() => setSearchOpen(true)}
-        onOpenAuth={() => setAuthOpen(true)}
+        onOpenAuth={handleOpenAuth}
       />
 
       {/* 2. Primary Views Area */}
@@ -65,6 +71,7 @@ const MainContent: React.FC = () => {
       <AuthModal
         isOpen={authOpen}
         onClose={() => setAuthOpen(false)}
+        defaultTab={authDefaultTab}
       />
 
       {/* 7. Post Share Modal */}
