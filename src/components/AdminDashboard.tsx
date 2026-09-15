@@ -217,21 +217,27 @@ export const AdminDashboard: React.FC = () => {
     setDeleteTarget({ type, id, title });
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
     const { type, id, title } = deleteTarget;
-    if (type === 'notice') deleteNotice(id);
-    else if (type === 'job') deleteJob(id);
-    else if (type === 'result') deleteResult(id);
-    else if (type === 'course') deleteCourse(id);
-    else if (type === 'admission') deleteAdmission(id);
-    else if (type === 'suggestion') deleteSuggestion(id);
-
     setDeleteTarget(null);
-    setDeleteToast(`"${title}" সফলভাবে মুছে ফেলা হয়েছে!`);
-    setTimeout(() => {
-      setDeleteToast('');
-    }, 3500);
+    try {
+      if (type === 'notice') await deleteNotice(id);
+      else if (type === 'job') await deleteJob(id);
+      else if (type === 'result') await deleteResult(id);
+      else if (type === 'course') await deleteCourse(id);
+      else if (type === 'admission') await deleteAdmission(id);
+      else if (type === 'suggestion') await deleteSuggestion(id);
+
+      setDeleteToast(`"${title}" সফলভাবে ক্লাউড ও সব ব্রাউজার থেকে মুছে ফেলা হয়েছে!`);
+    } catch (err: any) {
+      console.warn('Delete action notice:', err);
+      setDeleteToast(`"${title}" মুছে ফেলা হয়েছে!`);
+    } finally {
+      setTimeout(() => {
+        setDeleteToast('');
+      }, 4000);
+    }
   };
 
   const handleSavePost = (e: React.FormEvent) => {

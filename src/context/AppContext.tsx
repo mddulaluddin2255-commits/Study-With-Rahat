@@ -49,6 +49,8 @@ import {
 } from '../firebase/authService';
 import {
   subscribeToCollection,
+  subscribeToDeletedPosts,
+  recordGlobalDeletedPostId,
   normalizeNotice,
   normalizeJob,
   normalizeResult,
@@ -236,7 +238,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isFirebaseConnected] = useState<boolean>(isFirebaseConfigured);
   const [isFirebaseSyncing, setIsFirebaseSyncing] = useState<boolean>(true);
 
-  // Deleted Posts Registry to prevent deleted posts from reappearing on sync/reloads
+  // Deleted Posts Registry to prevent deleted posts from reappearing on sync/reloads across all browsers
   const [deletedPostIds, setDeletedPostIds] = useState<string[]>(() => getStored('deleted_post_ids', []));
   useEffect(() => setStored('deleted_post_ids', deletedPostIds), [deletedPostIds]);
 
@@ -246,7 +248,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setStored('deleted_post_ids', next);
       return next;
     });
+    // Immediately persist to global cloud registry so all devices and visitors sync deletions instantly
+    recordGlobalDeletedPostId(id).catch((err) => {
+      console.warn('Failed to record global deleted post id:', err);
+    });
   };
+
+  // Whenever deletedPostIds updates (via local deletion or cloud sync), immediately purge from all active state
+  useEffect(() => {
+    if (deletedPostIds.length === 0) return;
+    setNotices(prev => prev.filter(item => !deletedPostIds.includes(item.id)));
+    setJobs(prev => prev.filter(item => !deletedPostIds.includes(item.id)));
+    setResults(prev => prev.filter(item => !deletedPostIds.includes(item.id)));
+    setCourses(prev => prev.filter(item => !deletedPostIds.includes(item.id)));
+    setAdmissions(prev => prev.filter(item => !deletedPostIds.includes(item.id)));
+    setSuggestions(prev => prev.filter(item => !deletedPostIds.includes(item.id)));
+  }, [deletedPostIds]);
 
   // Content state (Initialized with localStorage / initialData, filtered of deleted items, continuously synced via Firestore)
   const [notices, setNotices] = useState<NoticePost[]>(() => {
@@ -363,7 +380,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.warn('Initial seeding notice:', err);
     });
 
-    // 2. Real-time Listeners for all collections
+    // 2. Real-time Listener for global deleted posts registry so all visitors/devices sync deletions instantly
+    const unsubDeleted = subscribeToDeletedPosts((cloudDeletedIds) => {
+      if (Array.isArray(cloudDeletedIds) && cloudDeletedIds.length > 0) {
+        setDeletedPostIds((prev) => {
+          const merged = Array.from(new Set([...prev, ...cloudDeletedIds]));
+          setStored('deleted_post_ids', merged);
+          return merged;
+        });
+      }
+    });
+
+    // 3. Real-time Listeners for all collections
     let noticesLoaded = false;
     let jobsLoaded = false;
     let resultsLoaded = false;
@@ -373,8 +401,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const unsubNotices = subscribeToCollection('notices', normalizeNotice, (items) => {
       const deleted: string[] = getStored('deleted_post_ids', []);
-      const activeItems = items.filter(n => !deleted.includes(n.id));
-      if (activeItems.length > 0 || noticesLoaded) {
+      const activeItems = items.filter(n => !deleted.includes(n.id) && !deletedPostIds.includes(n.id));
+      if (activeItems.length > 0 || noticesLoaded || items.length === 0) {
         setNotices(activeItems);
       }
       noticesLoaded = true;
@@ -383,8 +411,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const unsubJobs = subscribeToCollection('jobs', normalizeJob, (items) => {
       const deleted: string[] = getStored('deleted_post_ids', []);
-      const activeItems = items.filter(j => !deleted.includes(j.id));
-      if (activeItems.length > 0 || jobsLoaded) {
+      const activeItems = items.filter(j => !deleted.includes(j.id) && !deletedPostIds.includes(j.id));
+      if (activeItems.length > 0 || jobsLoaded || items.length === 0) {
         setJobs(activeItems);
       }
       jobsLoaded = true;
@@ -392,8 +420,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const unsubResults = subscribeToCollection('results', normalizeResult, (items) => {
       const deleted: string[] = getStored('deleted_post_ids', []);
-      const activeItems = items.filter(r => !deleted.includes(r.id));
-      if (activeItems.length > 0 || resultsLoaded) {
+      const activeItems = items.filter(r => !deleted.includes(r.id) && !deletedPostIds.includes(r.id));
+      if (activeItems.length > 0 || resultsLoaded || items.length === 0) {
         setResults(activeItems);
       }
       resultsLoaded = true;
@@ -401,8 +429,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const unsubCourses = subscribeToCollection('courses', normalizeCourse, (items) => {
       const deleted: string[] = getStored('deleted_post_ids', []);
-      const activeItems = items.filter(c => !deleted.includes(c.id));
-      if (activeItems.length > 0 || coursesLoaded) {
+      const activeItems = items.filter(c => !deleted.includes(c.id) && !deletedPostIds.includes(c.id));
+      if (activeItems.length > 0 || coursesLoaded || items.length === 0) {
         setCourses(activeItems);
       }
       coursesLoaded = true;
@@ -410,8 +438,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const unsubAdmissions = subscribeToCollection('admissions', normalizeAdmission, (items) => {
       const deleted: string[] = getStored('deleted_post_ids', []);
-      const activeItems = items.filter(a => !deleted.includes(a.id));
-      if (activeItems.length > 0 || admissionsLoaded) {
+      const activeItems = items.filter(a => !deleted.includes(a.id) && !deletedPostIds.includes(a.id));
+      if (activeItems.length > 0 || admissionsLoaded || items.length === 0) {
         setAdmissions(activeItems);
       }
       admissionsLoaded = true;
@@ -419,8 +447,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const unsubSuggestions = subscribeToCollection('suggestions', normalizeSuggestion, (items) => {
       const deleted: string[] = getStored('deleted_post_ids', []);
-      const activeItems = items.filter(s => !deleted.includes(s.id));
-      if (activeItems.length > 0 || suggestionsLoaded) {
+      const activeItems = items.filter(s => !deleted.includes(s.id) && !deletedPostIds.includes(s.id));
+      if (activeItems.length > 0 || suggestionsLoaded || items.length === 0) {
         setSuggestions(activeItems);
       }
       suggestionsLoaded = true;
@@ -480,6 +508,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     return () => {
+      unsubDeleted();
       unsubNotices();
       unsubJobs();
       unsubResults();

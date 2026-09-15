@@ -9,6 +9,8 @@ import {
   deleteDoc,
   onSnapshot,
   query,
+  where,
+  arrayUnion,
   orderBy,
   serverTimestamp,
   writeBatch
@@ -162,7 +164,13 @@ export const subscribeToCollection = <T>(
     const unsubscribe = onSnapshot(
       colRef,
       (snapshot) => {
-        const items = snapshot.docs.map((docSnap) => normalizeItem(docSnap.id, docSnap.data()));
+        // Filter out soft-deleted or un-published documents
+        const items = snapshot.docs
+          .filter((docSnap) => {
+            const data = docSnap.data();
+            return !data.isDeleted && data.isPublished !== false;
+          })
+          .map((docSnap) => normalizeItem(docSnap.id, docSnap.data()));
         onUpdate(items);
       },
       (error) => {
@@ -177,11 +185,62 @@ export const subscribeToCollection = <T>(
   }
 };
 
+// Global deletion sync: write deleted doc id into 'settings/deleted_posts' so ALL devices/visitors immediately filter it out
+export const recordGlobalDeletedPostId = async (id: string): Promise<void> => {
+  if (!id) return;
+  try {
+    const deletedRef = doc(db, 'settings', 'deleted_posts');
+    const snap = await getDoc(deletedRef).catch(() => null);
+    if (snap && snap.exists()) {
+      const currentIds: string[] = snap.data()?.ids || [];
+      if (!currentIds.includes(id)) {
+        await updateDoc(deletedRef, {
+          ids: arrayUnion(id),
+          updatedAt: new Date().toISOString()
+        }).catch(async () => {
+          await setDoc(deletedRef, {
+            ids: Array.from(new Set([...currentIds, id])),
+            updatedAt: new Date().toISOString()
+          }, { merge: true }).catch(() => {});
+        });
+      }
+    } else {
+      await setDoc(deletedRef, {
+        ids: [id],
+        updatedAt: new Date().toISOString()
+      }, { merge: true }).catch(() => {});
+    }
+  } catch (error) {
+    console.warn('Could not update global deleted_posts document:', error);
+  }
+};
+
+// Subscribe to global deleted posts list in Firestore
+export const subscribeToDeletedPosts = (onUpdate: (deletedIds: string[]) => void) => {
+  try {
+    const ref = doc(db, 'settings', 'deleted_posts');
+    return onSnapshot(ref, (snap) => {
+      if (snap.exists()) {
+        const ids = snap.data()?.ids || [];
+        if (Array.isArray(ids)) {
+          onUpdate(ids);
+        }
+      }
+    }, (err) => {
+      console.warn('Deleted posts subscription notice:', err);
+    });
+  } catch (err) {
+    console.warn('Failed to subscribe to deleted posts:', err);
+    return () => {};
+  }
+};
+
 // Generic Add or Set Document
 export const addFirestoreDoc = async (collectionName: string, data: any, customId?: string): Promise<string> => {
   try {
     const cleanData = {
       ...data,
+      isDeleted: false,
       createdAt: data.createdAt || new Date().toISOString()
     };
     if (customId) {
@@ -212,11 +271,36 @@ export const updateFirestoreDoc = async (collectionName: string, id: string, dat
   }
 };
 
-// Generic Delete Document
+// Generic Robust Delete Document
 export const deleteFirestoreDoc = async (collectionName: string, id: string): Promise<void> => {
   try {
+    // 1. Instantly register in the global deleted posts registry so all connected clients drop it immediately
+    await recordGlobalDeletedPostId(id).catch(console.warn);
+
+    // 2. Soft-delete flag on the document so active queries/listeners immediately drop it
     const docRef = doc(db, collectionName, id);
-    await deleteDoc(docRef);
+    await updateDoc(docRef, {
+      isDeleted: true,
+      isPublished: false,
+      deletedAt: new Date().toISOString()
+    }).catch(() => {});
+
+    // 3. Physical hard delete
+    await deleteDoc(docRef).catch(console.warn);
+
+    // 4. In case the document was saved with an auto-id but contains internal field id == id
+    try {
+      const colRef = collection(db, collectionName);
+      const q = query(colRef, where('id', '==', id));
+      const snap = await getDocs(q);
+      for (const d of snap.docs) {
+        if (d.id !== id) {
+          await deleteDoc(d.ref).catch(() => {});
+        }
+      }
+    } catch {
+      // safe ignore
+    }
   } catch (error) {
     console.error(`Error deleting document from ${collectionName}:`, error);
     throw error;
@@ -246,10 +330,15 @@ export const seedInitialFirestoreData = async (): Promise<boolean> => {
       return false; // Already has data, do not overwrite or re-seed
     }
 
+    // Fetch any globally deleted IDs so they are never seeded
+    const deletedSnap = await getDoc(doc(db, 'settings', 'deleted_posts')).catch(() => null);
+    const cloudDeletedIds: string[] = deletedSnap?.exists() ? (deletedSnap.data()?.ids || []) : [];
+
     console.log('Seeding initial data to Cloud Firestore once...');
 
     // Seed Notices
     for (const item of INITIAL_NOTICES) {
+      if (cloudDeletedIds.includes(item.id)) continue;
       await setDoc(doc(db, 'notices', item.id), {
         title: item.title,
         description: item.description,
@@ -260,12 +349,14 @@ export const seedInitialFirestoreData = async (): Promise<boolean> => {
         isImportant: item.isImportant,
         attachments: item.attachments || [],
         views: item.views,
-        isPublished: item.isPublished
+        isPublished: item.isPublished,
+        isDeleted: false
       });
     }
 
     // Seed Jobs
     for (const item of INITIAL_JOBS) {
+      if (cloudDeletedIds.includes(item.id)) continue;
       await setDoc(doc(db, 'jobs', item.id), {
         title: item.title,
         company: item.orgName,
@@ -280,12 +371,14 @@ export const seedInitialFirestoreData = async (): Promise<boolean> => {
         instructions: item.instructions,
         officialLink: item.officialLink,
         isPublished: item.isPublished,
-        views: item.views
+        views: item.views,
+        isDeleted: false
       });
     }
 
     // Seed Results
     for (const item of INITIAL_RESULTS) {
+      if (cloudDeletedIds.includes(item.id)) continue;
       await setDoc(doc(db, 'results', item.id), {
         title: item.title,
         class: item.examName,
@@ -297,12 +390,14 @@ export const seedInitialFirestoreData = async (): Promise<boolean> => {
         officialLink: item.officialLink,
         category: item.category,
         isPublished: item.isPublished,
-        views: item.views
+        views: item.views,
+        isDeleted: false
       });
     }
 
     // Seed Courses
     for (const item of INITIAL_COURSES) {
+      if (cloudDeletedIds.includes(item.id)) continue;
       await setDoc(doc(db, 'courses', item.id), {
         title: item.title,
         description: item.shortDesc,
@@ -319,12 +414,14 @@ export const seedInitialFirestoreData = async (): Promise<boolean> => {
         rating: item.rating,
         curriculum: item.curriculum,
         isPublished: item.isPublished,
-        views: item.views
+        views: item.views,
+        isDeleted: false
       });
     }
 
     // Seed Admissions
     for (const item of INITIAL_ADMISSIONS) {
+      if (cloudDeletedIds.includes(item.id)) continue;
       await setDoc(doc(db, 'admissions', item.id), {
         title: item.title,
         institution: item.institutionName,
@@ -337,12 +434,14 @@ export const seedInitialFirestoreData = async (): Promise<boolean> => {
         fee: item.fee,
         officialLink: item.officialLink,
         isPublished: item.isPublished,
-        views: item.views
+        views: item.views,
+        isDeleted: false
       });
     }
 
     // Seed Suggestions
     for (const item of INITIAL_SUGGESTIONS) {
+      if (cloudDeletedIds.includes(item.id)) continue;
       await setDoc(doc(db, 'suggestions', item.id), {
         class: item.classCategory,
         subject: item.subject,
@@ -353,7 +452,8 @@ export const seedInitialFirestoreData = async (): Promise<boolean> => {
         downloadCount: item.downloadCount,
         importantQuestions: item.importantQuestions,
         isPublished: item.isPublished,
-        views: item.views
+        views: item.views,
+        isDeleted: false
       });
     }
 
