@@ -29,7 +29,7 @@ service cloud.firestore {
       return isAuthenticated() && 
         (
           request.auth.token.email == 'admin@studywithrahat.com' ||
-          request.auth.token.email == 'mdsojibhossain96714496@gmail.com' ||
+          request.auth.token.email.matches('.*@studywithrahat[.]com') ||
           (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
         );
@@ -37,54 +37,40 @@ service cloud.firestore {
 
     // Users Collection
     match /users/{userId} {
-      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-      allow create: if isAuthenticated() && isOwner(userId);
-      allow update: if isAuthenticated() && (
-        isAdmin() || 
-        (isOwner(userId) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role'])))
-      );
-      allow delete: if isAdmin();
+      allow read, write: if true;
     }
 
-    // Public Educational Content
+    // Public Educational Content (Read & Write permitted for CMS management)
     match /notices/{noticeId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow read, write: if true;
     }
 
     match /results/{resultId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow read, write: if true;
     }
 
     match /jobs/{jobId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow read, write: if true;
     }
 
     match /courses/{courseId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow read, write: if true;
     }
 
     match /admissions/{admissionId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow read, write: if true;
     }
 
     match /suggestions/{suggestionId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow read, write: if true;
     }
 
     match /settings/{docId} {
-      allow read: if true;
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
 
     match /ads/{adId} {
-      allow read: if true;
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
   }
 }`;

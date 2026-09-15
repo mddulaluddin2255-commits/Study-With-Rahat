@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   setDoc,
   addDoc,
@@ -176,14 +177,19 @@ export const subscribeToCollection = <T>(
   }
 };
 
-// Generic Add Document
-export const addFirestoreDoc = async (collectionName: string, data: any): Promise<string> => {
+// Generic Add or Set Document
+export const addFirestoreDoc = async (collectionName: string, data: any, customId?: string): Promise<string> => {
   try {
-    const colRef = collection(db, collectionName);
     const cleanData = {
       ...data,
-      createdAt: new Date().toISOString()
+      createdAt: data.createdAt || new Date().toISOString()
     };
+    if (customId) {
+      const docRef = doc(db, collectionName, customId);
+      await setDoc(docRef, cleanData);
+      return customId;
+    }
+    const colRef = collection(db, collectionName);
     const docRef = await addDoc(colRef, cleanData);
     return docRef.id;
   } catch (error) {
@@ -217,15 +223,30 @@ export const deleteFirestoreDoc = async (collectionName: string, id: string): Pr
   }
 };
 
-// Seed initial posts to Firestore if empty
+// Seed initial posts to Firestore once (never re-seed deleted items)
 export const seedInitialFirestoreData = async (): Promise<boolean> => {
   try {
-    const noticesSnap = await getDocs(collection(db, 'notices'));
-    if (!noticesSnap.empty) {
-      return false; // Already has data
+    // 1. If already marked as seeded locally, never re-seed
+    if (localStorage.getItem('swr_initial_seeded_flag') === 'true') {
+      return false;
     }
 
-    console.log('Seeding initial data to Cloud Firestore...');
+    // 2. Check if Firestore already has marker or notices
+    const seedMarkerRef = doc(db, 'settings', 'seed_marker');
+    const markerSnap = await getDoc(seedMarkerRef);
+    if (markerSnap.exists() && markerSnap.data()?.hasSeeded) {
+      localStorage.setItem('swr_initial_seeded_flag', 'true');
+      return false;
+    }
+
+    const noticesSnap = await getDocs(collection(db, 'notices'));
+    if (!noticesSnap.empty) {
+      localStorage.setItem('swr_initial_seeded_flag', 'true');
+      await setDoc(seedMarkerRef, { hasSeeded: true, seededAt: new Date().toISOString() }).catch(() => {});
+      return false; // Already has data, do not overwrite or re-seed
+    }
+
+    console.log('Seeding initial data to Cloud Firestore once...');
 
     // Seed Notices
     for (const item of INITIAL_NOTICES) {
@@ -335,6 +356,10 @@ export const seedInitialFirestoreData = async (): Promise<boolean> => {
         views: item.views
       });
     }
+
+    // Mark as seeded in Firestore and localStorage
+    await setDoc(seedMarkerRef, { hasSeeded: true, seededAt: new Date().toISOString() }).catch(() => {});
+    localStorage.setItem('swr_initial_seeded_flag', 'true');
 
     return true;
   } catch (error) {

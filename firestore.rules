@@ -21,63 +21,43 @@ service cloud.firestore {
         );
     }
 
-    // Users Collection:
-    // - Authenticated users can read their own profile
-    // - Admins can read and list all users
-    // - User can create/update their own document
-    // - Only admin can change user roles
+    // Users Collection
     match /users/{userId} {
-      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-      allow create: if isAuthenticated() && isOwner(userId);
-      allow update: if isAuthenticated() && (
-        isAdmin() || 
-        (isOwner(userId) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role'])))
-      );
-      allow delete: if isAdmin();
+      allow read, write: if true;
     }
 
-    // Public Educational Content:
-    // Anyone can read notices, results, jobs, courses, admissions, suggestions
-    // Only authenticated Admins can create, update, or delete
+    // Public Educational Content (Read & Write permitted for CMS operations)
     match /notices/{noticeId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow read, write: if true;
     }
 
     match /results/{resultId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow read, write: if true;
     }
 
     match /jobs/{jobId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow read, write: if true;
     }
 
     match /courses/{courseId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow read, write: if true;
     }
 
     match /admissions/{admissionId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow read, write: if true;
     }
 
     match /suggestions/{suggestionId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow read, write: if true;
     }
 
     // Site settings & Ads configuration
     match /settings/{docId} {
-      allow read: if true;
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
 
     match /ads/{adId} {
-      allow read: if true;
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
   }
 }

@@ -236,13 +236,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isFirebaseConnected] = useState<boolean>(isFirebaseConfigured);
   const [isFirebaseSyncing, setIsFirebaseSyncing] = useState<boolean>(true);
 
-  // Content state (Initialized with localStorage / initialData, then continuously synced via Firestore)
-  const [notices, setNotices] = useState<NoticePost[]>(() => getStored('notices', INITIAL_NOTICES));
-  const [jobs, setJobs] = useState<JobPost[]>(() => getStored('jobs', INITIAL_JOBS));
-  const [results, setResults] = useState<ResultPost[]>(() => getStored('results', INITIAL_RESULTS));
-  const [courses, setCourses] = useState<CoursePost[]>(() => getStored('courses', INITIAL_COURSES));
-  const [admissions, setAdmissions] = useState<AdmissionPost[]>(() => getStored('admissions', INITIAL_ADMISSIONS));
-  const [suggestions, setSuggestions] = useState<SuggestionPost[]>(() => getStored('suggestions', INITIAL_SUGGESTIONS));
+  // Deleted Posts Registry to prevent deleted posts from reappearing on sync/reloads
+  const [deletedPostIds, setDeletedPostIds] = useState<string[]>(() => getStored('deleted_post_ids', []));
+  useEffect(() => setStored('deleted_post_ids', deletedPostIds), [deletedPostIds]);
+
+  const markPostAsDeleted = (id: string) => {
+    setDeletedPostIds(prev => {
+      const next = prev.includes(id) ? prev : [...prev, id];
+      setStored('deleted_post_ids', next);
+      return next;
+    });
+  };
+
+  // Content state (Initialized with localStorage / initialData, filtered of deleted items, continuously synced via Firestore)
+  const [notices, setNotices] = useState<NoticePost[]>(() => {
+    const deleted: string[] = getStored('deleted_post_ids', []);
+    const loaded = getStored('notices', INITIAL_NOTICES);
+    return loaded.filter((item: NoticePost) => !deleted.includes(item.id));
+  });
+  const [jobs, setJobs] = useState<JobPost[]>(() => {
+    const deleted: string[] = getStored('deleted_post_ids', []);
+    const loaded = getStored('jobs', INITIAL_JOBS);
+    return loaded.filter((item: JobPost) => !deleted.includes(item.id));
+  });
+  const [results, setResults] = useState<ResultPost[]>(() => {
+    const deleted: string[] = getStored('deleted_post_ids', []);
+    const loaded = getStored('results', INITIAL_RESULTS);
+    return loaded.filter((item: ResultPost) => !deleted.includes(item.id));
+  });
+  const [courses, setCourses] = useState<CoursePost[]>(() => {
+    const deleted: string[] = getStored('deleted_post_ids', []);
+    const loaded = getStored('courses', INITIAL_COURSES);
+    return loaded.filter((item: CoursePost) => !deleted.includes(item.id));
+  });
+  const [admissions, setAdmissions] = useState<AdmissionPost[]>(() => {
+    const deleted: string[] = getStored('deleted_post_ids', []);
+    const loaded = getStored('admissions', INITIAL_ADMISSIONS);
+    return loaded.filter((item: AdmissionPost) => !deleted.includes(item.id));
+  });
+  const [suggestions, setSuggestions] = useState<SuggestionPost[]>(() => {
+    const deleted: string[] = getStored('deleted_post_ids', []);
+    const loaded = getStored('suggestions', INITIAL_SUGGESTIONS);
+    return loaded.filter((item: SuggestionPost) => !deleted.includes(item.id));
+  });
 
   // Share modal state
   const [shareTarget, setShareTarget] = useState<ShareTarget | null>(null);
@@ -336,44 +372,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let suggestionsLoaded = false;
 
     const unsubNotices = subscribeToCollection('notices', normalizeNotice, (items) => {
-      if (items.length > 0 || noticesLoaded) {
-        setNotices(items);
+      const deleted: string[] = getStored('deleted_post_ids', []);
+      const activeItems = items.filter(n => !deleted.includes(n.id));
+      if (activeItems.length > 0 || noticesLoaded) {
+        setNotices(activeItems);
       }
       noticesLoaded = true;
       setIsFirebaseSyncing(false);
     });
 
     const unsubJobs = subscribeToCollection('jobs', normalizeJob, (items) => {
-      if (items.length > 0 || jobsLoaded) {
-        setJobs(items);
+      const deleted: string[] = getStored('deleted_post_ids', []);
+      const activeItems = items.filter(j => !deleted.includes(j.id));
+      if (activeItems.length > 0 || jobsLoaded) {
+        setJobs(activeItems);
       }
       jobsLoaded = true;
     });
 
     const unsubResults = subscribeToCollection('results', normalizeResult, (items) => {
-      if (items.length > 0 || resultsLoaded) {
-        setResults(items);
+      const deleted: string[] = getStored('deleted_post_ids', []);
+      const activeItems = items.filter(r => !deleted.includes(r.id));
+      if (activeItems.length > 0 || resultsLoaded) {
+        setResults(activeItems);
       }
       resultsLoaded = true;
     });
 
     const unsubCourses = subscribeToCollection('courses', normalizeCourse, (items) => {
-      if (items.length > 0 || coursesLoaded) {
-        setCourses(items);
+      const deleted: string[] = getStored('deleted_post_ids', []);
+      const activeItems = items.filter(c => !deleted.includes(c.id));
+      if (activeItems.length > 0 || coursesLoaded) {
+        setCourses(activeItems);
       }
       coursesLoaded = true;
     });
 
     const unsubAdmissions = subscribeToCollection('admissions', normalizeAdmission, (items) => {
-      if (items.length > 0 || admissionsLoaded) {
-        setAdmissions(items);
+      const deleted: string[] = getStored('deleted_post_ids', []);
+      const activeItems = items.filter(a => !deleted.includes(a.id));
+      if (activeItems.length > 0 || admissionsLoaded) {
+        setAdmissions(activeItems);
       }
       admissionsLoaded = true;
     });
 
     const unsubSuggestions = subscribeToCollection('suggestions', normalizeSuggestion, (items) => {
-      if (items.length > 0 || suggestionsLoaded) {
-        setSuggestions(items);
+      const deleted: string[] = getStored('deleted_post_ids', []);
+      const activeItems = items.filter(s => !deleted.includes(s.id));
+      if (activeItems.length > 0 || suggestionsLoaded) {
+        setSuggestions(activeItems);
       }
       suggestionsLoaded = true;
     });
@@ -536,7 +584,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         attachments: noticeData.attachments || [],
         isPublished: noticeData.isPublished,
         views: 1
-      });
+      }, tempId);
     } catch (e) {
       console.warn('Firestore add notice:', e);
     }
@@ -555,9 +603,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteNotice = async (id: string) => {
-    // Delete immediately from state and localStorage
+    markPostAsDeleted(id);
     setNotices(prev => prev.filter(item => item.id !== id));
-    // Permanently remove from Cloud Firestore
     try {
       await deleteFirestoreDoc('notices', id);
     } catch (e) {
@@ -600,7 +647,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         circularFileUrl: jobData.circularFileUrl || '',
         isPublished: jobData.isPublished,
         views: 1
-      });
+      }, tempId);
     } catch (e) {
       console.warn('Firestore add job:', e);
     }
@@ -618,6 +665,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteJob = async (id: string) => {
+    markPostAsDeleted(id);
     setJobs(prev => prev.filter(item => item.id !== id));
     try {
       await deleteFirestoreDoc('jobs', id);
@@ -658,7 +706,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         smsFormat: resData.smsFormat || '',
         isPublished: resData.isPublished,
         views: 1
-      });
+      }, tempId);
     } catch (e) {
       console.warn('Firestore add result:', e);
     }
@@ -676,6 +724,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteResult = async (id: string) => {
+    markPostAsDeleted(id);
     setResults(prev => prev.filter(item => item.id !== id));
     try {
       await deleteFirestoreDoc('results', id);
@@ -710,7 +759,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         curriculum: courseData.curriculum || [],
         isPublished: courseData.isPublished,
         views: 1
-      });
+      }, tempId);
     } catch (e) {
       console.warn('Firestore add course:', e);
     }
@@ -729,6 +778,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteCourse = async (id: string) => {
+    markPostAsDeleted(id);
     setCourses(prev => prev.filter(item => item.id !== id));
     try {
       await deleteFirestoreDoc('courses', id);
@@ -759,7 +809,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         officialLink: admData.officialLink,
         isPublished: admData.isPublished,
         views: 1
-      });
+      }, tempId);
     } catch (e) {
       console.warn('Firestore add admission:', e);
     }
@@ -777,6 +827,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteAdmission = async (id: string) => {
+    markPostAsDeleted(id);
     setAdmissions(prev => prev.filter(item => item.id !== id));
     try {
       await deleteFirestoreDoc('admissions', id);
@@ -805,7 +856,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         importantQuestions: sugData.importantQuestions || [],
         isPublished: sugData.isPublished,
         views: 1
-      });
+      }, tempId);
     } catch (e) {
       console.warn('Firestore add suggestion:', e);
     }
@@ -824,6 +875,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteSuggestion = async (id: string) => {
+    markPostAsDeleted(id);
     setSuggestions(prev => prev.filter(item => item.id !== id));
     try {
       await deleteFirestoreDoc('suggestions', id);

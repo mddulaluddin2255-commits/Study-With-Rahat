@@ -71,7 +71,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultTa
 
     const key = (adminSecretKey || password).trim();
     if (!key) {
-      setErrorMsg('অনুগ্রহ করে এডমিন সিকিউরিটি পাসওয়ার্ড লিখুন (ডিফল্ট: rahat2026)');
+      setErrorMsg('অনুগ্রহ করে এডমিন সিকিউরিটি পাসওয়ার্ড লিখুন।');
       return;
     }
 
@@ -85,7 +85,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultTa
         navigateTo('admin');
       }, 700);
     } else {
-      setErrorMsg('ভুল এডমিন মাস্টার পাসওয়ার্ড! সঠিক পাসওয়ার্ড দিন (ডিফল্ট: rahat2026)');
+      setErrorMsg('ভুল এডমিন পাসওয়ার্ড! সঠিক সিকিউরিটি পাসওয়ার্ড প্রদান করুন।');
     }
   };
 
@@ -117,7 +117,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultTa
         // If choosing Admin during registration, require master password validation
         if (role === 'admin' && !isUserAdminEmail(email)) {
           if (adminSecretKey.trim() !== adminPassword.trim()) {
-            setErrorMsg('এডমিন অ্যাকাউন্ট তৈরি করতে সঠিক এডমিন মাস্টার কী প্রদান করুন (ডিফল্ট: rahat2026)।');
+            setErrorMsg('এডমিন অ্যাকাউন্ট তৈরি করতে সঠিক এডমিন মাস্টার কী প্রদান করুন।');
             setLoading(false);
             return;
           }
@@ -255,7 +255,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultTa
         navigateTo('admin');
       }, 900);
     } else {
-      setUpgradeMsg({ text: 'ভুল এডমিন মাস্টার পাসওয়ার্ড! (ডিফল্ট: rahat2026)', isError: true });
+      setUpgradeMsg({ text: 'ভুল এডমিন মাস্টার পাসওয়ার্ড! সঠিক পাসওয়ার্ড দিন।', isError: true });
     }
   };
 
@@ -339,7 +339,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultTa
                       type="password"
                       value={upgradeKeyInput}
                       onChange={(e) => setUpgradeKeyInput(e.target.value)}
-                      placeholder="মাস্টার পাসওয়ার্ড (ডিফল্ট: rahat2026)"
+                      placeholder="মাস্টার পাসওয়ার্ড দিন"
                       className="grow px-3 py-1.5 text-xs bg-white border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-hidden"
                     />
                     <button
@@ -492,7 +492,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultTa
                         type={showPassword ? 'text' : 'password'}
                         value={adminSecretKey}
                         onChange={(e) => setAdminSecretKey(e.target.value)}
-                        placeholder="পাসওয়ার্ড (ডিফল্ট: rahat2026)"
+                        placeholder="সিকিউরিটি পাসওয়ার্ড লিখুন"
                         className="w-full pl-9 pr-10 py-2 text-xs bg-white border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-hidden font-mono"
                       />
                       <button
@@ -512,9 +512,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultTa
                       <span>মাস্টার কী দিয়ে এডমিন প্রবেশ</span>
                     </button>
                   </form>
-                  <div className="mt-2 text-[10px] text-amber-800 text-center font-mono bg-amber-100/60 py-0.5 px-2 rounded-md">
-                    ডিফল্ট এডমিন পাসওয়ার্ড: <span className="font-bold underline cursor-pointer" onClick={() => setAdminSecretKey('rahat2026')}>rahat2026</span>
-                  </div>
                 </div>
 
                 <div className="relative my-3 text-center">
@@ -536,7 +533,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultTa
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="mdsojibhossain96714496@gmail.com"
+                        placeholder="admin@studywithrahat.com"
                         className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 outline-hidden"
                         required
                       />
@@ -777,12 +774,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultTa
                       type="password"
                       value={adminSecretKey}
                       onChange={(e) => setAdminSecretKey(e.target.value)}
-                      placeholder="মাস্টার কী দিন (যেমন: rahat2026)"
+                      placeholder="মাস্টার কী দিন"
                       className="w-full px-3 py-1.5 text-xs border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-hidden bg-white"
                       required
                     />
                     <p className="text-[10px] text-amber-700 mt-1">
-                      অননুমোদিত রেজিস্ট্রেশন ঠেকাতে এডমিন পিন প্রয়োজন। (ডিফল্ট: rahat2026)
+                      অননুমোদিত রেজিস্ট্রেশন ঠেকাতে এডমিন সিকিউরিটি পিন প্রয়োজন।
                     </p>
                   </div>
                 )}
