@@ -235,6 +235,24 @@ export const subscribeToDeletedPosts = (onUpdate: (deletedIds: string[]) => void
   }
 };
 
+// Check whether Firestore rules permit client-side writes
+export const checkFirestoreWritePermission = async (): Promise<{ canWrite: boolean; error?: string }> => {
+  try {
+    const testDoc = doc(db, 'settings', 'connectivity_check');
+    await setDoc(testDoc, {
+      lastChecked: new Date().toISOString(),
+      status: 'operational'
+    }, { merge: true });
+    return { canWrite: true };
+  } catch (err: any) {
+    const isPermError = err?.code === 'permission-denied' || String(err?.message || '').toLowerCase().includes('permission');
+    return {
+      canWrite: false,
+      error: isPermError ? 'permission-denied' : (err?.message || 'unknown-error')
+    };
+  }
+};
+
 // Generic Add or Set Document
 export const addFirestoreDoc = async (collectionName: string, data: any, customId?: string): Promise<string> => {
   try {
@@ -245,7 +263,7 @@ export const addFirestoreDoc = async (collectionName: string, data: any, customI
     };
     if (customId) {
       const docRef = doc(db, collectionName, customId);
-      await setDoc(docRef, cleanData);
+      await setDoc(docRef, cleanData, { merge: true });
       return customId;
     }
     const colRef = collection(db, collectionName);
@@ -257,14 +275,14 @@ export const addFirestoreDoc = async (collectionName: string, data: any, customI
   }
 };
 
-// Generic Update Document
+// Generic Update Document (Uses merge to safely update or create if not present)
 export const updateFirestoreDoc = async (collectionName: string, id: string, data: any): Promise<void> => {
   try {
     const docRef = doc(db, collectionName, id);
-    await updateDoc(docRef, {
+    await setDoc(docRef, {
       ...data,
       updatedAt: new Date().toISOString()
-    });
+    }, { merge: true });
   } catch (error) {
     console.error(`Error updating document in ${collectionName}:`, error);
     throw error;
@@ -279,11 +297,11 @@ export const deleteFirestoreDoc = async (collectionName: string, id: string): Pr
 
     // 2. Soft-delete flag on the document so active queries/listeners immediately drop it
     const docRef = doc(db, collectionName, id);
-    await updateDoc(docRef, {
+    await setDoc(docRef, {
       isDeleted: true,
       isPublished: false,
       deletedAt: new Date().toISOString()
-    }).catch(() => {});
+    }, { merge: true }).catch(() => {});
 
     // 3. Physical hard delete
     await deleteDoc(docRef).catch(console.warn);

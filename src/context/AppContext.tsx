@@ -60,7 +60,8 @@ import {
   addFirestoreDoc,
   updateFirestoreDoc,
   deleteFirestoreDoc,
-  seedInitialFirestoreData
+  seedInitialFirestoreData,
+  checkFirestoreWritePermission
 } from '../firebase/firestoreService';
 
 export type ActiveView = 
@@ -95,6 +96,9 @@ interface AppContextType {
   // Firebase Status
   isFirebaseConnected: boolean;
   isFirebaseSyncing: boolean;
+  isFirestoreWritePermitted: boolean;
+  firestoreWriteError: string | null;
+  checkFirestoreStatus: () => Promise<boolean>;
 
   // Content
   notices: NoticePost[];
@@ -104,30 +108,30 @@ interface AppContextType {
   admissions: AdmissionPost[];
   suggestions: SuggestionPost[];
 
-  // CRUD
-  addNotice: (notice: Omit<NoticePost, 'id' | 'views'>) => Promise<void>;
-  updateNotice: (id: string, notice: Partial<NoticePost>) => Promise<void>;
-  deleteNotice: (id: string) => Promise<void>;
+  // CRUD (returns cloud sync status)
+  addNotice: (notice: Omit<NoticePost, 'id' | 'views'>) => Promise<{ success: boolean; cloudSynced: boolean; error?: string }>;
+  updateNotice: (id: string, notice: Partial<NoticePost>) => Promise<{ success: boolean; cloudSynced: boolean; error?: string }>;
+  deleteNotice: (id: string) => Promise<{ success: boolean; cloudSynced: boolean; error?: string }>;
 
-  addJob: (job: Omit<JobPost, 'id' | 'views'>) => Promise<void>;
-  updateJob: (id: string, job: Partial<JobPost>) => Promise<void>;
-  deleteJob: (id: string) => Promise<void>;
+  addJob: (job: Omit<JobPost, 'id' | 'views'>) => Promise<{ success: boolean; cloudSynced: boolean; error?: string }>;
+  updateJob: (id: string, job: Partial<JobPost>) => Promise<{ success: boolean; cloudSynced: boolean; error?: string }>;
+  deleteJob: (id: string) => Promise<{ success: boolean; cloudSynced: boolean; error?: string }>;
 
-  addResult: (res: Omit<ResultPost, 'id' | 'views'>) => Promise<void>;
-  updateResult: (id: string, res: Partial<ResultPost>) => Promise<void>;
-  deleteResult: (id: string) => Promise<void>;
+  addResult: (res: Omit<ResultPost, 'id' | 'views'>) => Promise<{ success: boolean; cloudSynced: boolean; error?: string }>;
+  updateResult: (id: string, res: Partial<ResultPost>) => Promise<{ success: boolean; cloudSynced: boolean; error?: string }>;
+  deleteResult: (id: string) => Promise<{ success: boolean; cloudSynced: boolean; error?: string }>;
 
-  addCourse: (course: Omit<CoursePost, 'id' | 'views'>) => Promise<void>;
-  updateCourse: (id: string, course: Partial<CoursePost>) => Promise<void>;
-  deleteCourse: (id: string) => Promise<void>;
+  addCourse: (course: Omit<CoursePost, 'id' | 'views'>) => Promise<{ success: boolean; cloudSynced: boolean; error?: string }>;
+  updateCourse: (id: string, course: Partial<CoursePost>) => Promise<{ success: boolean; cloudSynced: boolean; error?: string }>;
+  deleteCourse: (id: string) => Promise<{ success: boolean; cloudSynced: boolean; error?: string }>;
 
-  addAdmission: (adm: Omit<AdmissionPost, 'id' | 'views'>) => Promise<void>;
-  updateAdmission: (id: string, adm: Partial<AdmissionPost>) => Promise<void>;
-  deleteAdmission: (id: string) => Promise<void>;
+  addAdmission: (adm: Omit<AdmissionPost, 'id' | 'views'>) => Promise<{ success: boolean; cloudSynced: boolean; error?: string }>;
+  updateAdmission: (id: string, adm: Partial<AdmissionPost>) => Promise<{ success: boolean; cloudSynced: boolean; error?: string }>;
+  deleteAdmission: (id: string) => Promise<{ success: boolean; cloudSynced: boolean; error?: string }>;
 
-  addSuggestion: (sug: Omit<SuggestionPost, 'id' | 'views'>) => Promise<void>;
-  updateSuggestion: (id: string, sug: Partial<SuggestionPost>) => Promise<void>;
-  deleteSuggestion: (id: string) => Promise<void>;
+  addSuggestion: (sug: Omit<SuggestionPost, 'id' | 'views'>) => Promise<{ success: boolean; cloudSynced: boolean; error?: string }>;
+  updateSuggestion: (id: string, sug: Partial<SuggestionPost>) => Promise<{ success: boolean; cloudSynced: boolean; error?: string }>;
+  deleteSuggestion: (id: string) => Promise<{ success: boolean; cloudSynced: boolean; error?: string }>;
 
   togglePublish: (type: PostType, id: string) => void;
   getPostById: (type: PostType, id: string) => AnyPost | undefined;
